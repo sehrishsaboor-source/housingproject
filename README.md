@@ -8,7 +8,7 @@ An interactive dashboard analyzing villa (småhus) sales prices across Swedish c
 
 **Live dashboard:** https://sehrishsaboor-source.github.io/housingproject/
 
-> 📸 *Add a screenshot of the live dashboard here — save it to `docs/screenshot.png` and reference it with `![Dashboard screenshot](docs/screenshot.png)` right below this line. A visual is the single highest-impact addition a reviewer sees before reading a word.*
+![Swedish Housing Market Dashboard screenshot](docs/screenshot.png)
 
 ## Highlights
 
