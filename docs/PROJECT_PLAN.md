@@ -113,7 +113,8 @@ HousingProject/
 - [x] Data downloaded, re-encoded, reshaped, and verified (§2, §4)
 - [x] Data model defined (§3)
 - [x] Dashboard built (§5), pushed to `github.com/sehrishsaboor-source/housingproject`, `index.html` moved to repo root for GitHub Pages (§7)
-- [ ] **Next:** confirm `https://sehrishsaboor-source.github.io/housingproject/` renders correctly once Pages redeploys, then write the portfolio `README.md` (project overview, objectives, data source, tools, features, skills demonstrated).
+- [x] Portfolio `README.md` written (overview, objectives, data source, tools, features, skills demonstrated)
+- [ ] **Next:** confirm `https://sehrishsaboor-source.github.io/housingproject/` renders correctly, then start on v2 scope (§9) whenever ready.
 
 ## 9. Roadmap (later versions)
 
