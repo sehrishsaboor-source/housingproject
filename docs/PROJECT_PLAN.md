@@ -68,7 +68,7 @@ An Apps Script approach was tried first inside Google Sheets but produced misali
 
 ## 5. Dashboard implementation
 
-**Location:** `dashboard/index.html` — a single self-contained HTML/CSS/JS file (data embedded inline, no external requests, no build step). Published as a Claude artifact for live preview during development.
+**Location:** `index.html` at the repo root — a single self-contained HTML/CSS/JS file (data embedded inline, no external requests, no build step). Kept at the root (moved from `dashboard/index.html`) so GitHub Pages' "Deploy from a branch" mode serves it directly at the site root with no sub-path — see §7 for why. Also published as a Claude artifact for live preview during development.
 
 **Design system:** followed the project's `dataviz` skill — hand-rolled SVG charts (no external chart library, so nothing to violate the sandbox's CSP), the skill's validated blue categorical color (`#2a78d6` light / `#3987e5` dark) as the single series color, light/dark mode both styled via `prefers-color-scheme` and a `data-theme` override, hover tooltips + crosshair on the line/bar charts, and a table-first approach to labeling (direct labels only on chart extremes, full values always in the tooltip).
 
@@ -95,24 +95,25 @@ HousingProject/
   data/
     raw/          <- original SCB export + UTF-8 re-encoded copy
     processed/    <- housing_flat.csv (final flat table, verified)
-  dashboard/
-    index.html    <- the dashboard (self-contained, data embedded)
   docs/
     PROJECT_PLAN.md   <- this file
+  index.html      <- the dashboard (self-contained, data embedded) — at repo root for GitHub Pages
   README.md       <- portfolio-facing description (next step, §8)
 ```
 
+**Why `index.html` lives at the repo root, not in a `dashboard/` folder:** it was originally under `dashboard/`, deployed via a GitHub Actions Pages workflow (`actions/upload-pages-artifact` + `actions/deploy-pages`). That workflow failed with a 404 ("Ensure GitHub Pages has been enabled") because the repo's Settings → Pages → Source was never switched to "GitHub Actions" — it was left on the default "Deploy from a branch" mode, which just serves the raw repo tree from `main`. Under that mode, `dashboard/index.html` only worked at its literal sub-path, not at the site root. Moving `index.html` to the root and deleting the Actions workflow makes the dashboard work at the plain root URL under the Pages mode that was already active, with no further Settings changes needed.
+
 ## 7. Tools required
 
-- A modern browser to view `dashboard/index.html` (or the published artifact link)
+- A modern browser to view `index.html` (or the published artifact link)
 - Nothing else — no paid tools, no APIs, no Excel, no Power BI, no Google account
 
 ## 8. Status / next concrete step
 
 - [x] Data downloaded, re-encoded, reshaped, and verified (§2, §4)
 - [x] Data model defined (§3)
-- [x] Dashboard built and published as an artifact (§5)
-- [ ] **Next:** review the live dashboard for correctness and readability (label collisions, tooltip accuracy, dark mode), then write the portfolio `README.md` (project overview, objectives, data source, tools, features, skills demonstrated) and decide whether to host `dashboard/index.html` anywhere permanent (e.g. GitHub Pages) for the portfolio link.
+- [x] Dashboard built (§5), pushed to `github.com/sehrishsaboor-source/housingproject`, `index.html` moved to repo root for GitHub Pages (§7)
+- [ ] **Next:** confirm `https://sehrishsaboor-source.github.io/housingproject/` renders correctly once Pages redeploys, then write the portfolio `README.md` (project overview, objectives, data source, tools, features, skills demonstrated).
 
 ## 9. Roadmap (later versions)
 
