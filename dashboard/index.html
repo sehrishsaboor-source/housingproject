@@ -1,0 +1,531 @@
+<title>Swedish Housing Market Dashboard</title>
+<style>
+  .viz-root {
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6;   /* blue - primary series */
+    --series-1-soft:  #cde2fb;   /* light step for unfilled/muted bars */
+    --good:           #006300;
+  }
+  @media (prefers-color-scheme: dark) {
+    .viz-root {
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --text-muted:     #898781;
+      --gridline:       #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --series-1-soft:  #184f95;
+      --good:           #0ca30c;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --text-muted:     #898781;
+    --gridline:       #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --series-1-soft:  #184f95;
+    --good:           #0ca30c;
+  }
+  :root[data-theme="light"] .viz-root {
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted:     #898781;
+    --gridline:       #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6;
+    --series-1-soft:  #cde2fb;
+    --good:           #006300;
+  }
+
+  * { box-sizing: border-box; }
+  .viz-root {
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; }
+  .header { margin-bottom: 20px; }
+  .header h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; }
+  .header p { font-size: 13px; color: var(--text-secondary); margin: 0; }
+
+  .filters {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px 16px; margin-bottom: 20px;
+  }
+  .filters label { font-size: 12px; color: var(--text-secondary); margin-right: 6px; }
+  .filters select {
+    font: inherit; font-size: 13px; color: var(--text-primary);
+    background: var(--page-plane); border: 1px solid var(--border);
+    border-radius: 6px; padding: 5px 8px;
+  }
+  .filter-group { display: flex; align-items: center; }
+  .reset-btn {
+    margin-left: auto; font-size: 12px; color: var(--text-secondary);
+    background: none; border: 1px solid var(--border); border-radius: 6px;
+    padding: 5px 10px; cursor: pointer; font-family: inherit;
+  }
+  .reset-btn:hover { color: var(--text-primary); }
+
+  .kpi-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-bottom: 24px;
+  }
+  .stat-tile {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-top: 3px solid var(--series-1);
+    border-radius: 10px; padding: 16px 18px;
+  }
+  .stat-tile .label { font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 8px; }
+  .stat-tile .value { font-size: 28px; font-weight: 700; letter-spacing: -0.01em; font-variant-numeric: proportional-nums; }
+  .stat-tile .sub { font-size: 11.5px; color: var(--text-muted); margin-top: 5px; }
+
+  .chart-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  }
+  @media (max-width: 860px) { .chart-grid { grid-template-columns: 1fr; } .kpi-row { grid-template-columns: repeat(2,1fr); } }
+
+  figure.chart-card {
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px 14px; margin: 0;
+  }
+  .chart-card .card-title { font-size: 14px; font-weight: 650; margin-bottom: 2px; }
+  .chart-card .card-sub { font-size: 12px; color: var(--text-secondary); margin-bottom: 10px; }
+  .chart-card svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis-label { font-size: 11px; fill: var(--text-muted); }
+  .axis-title { font-size: 11px; font-weight: 600; fill: var(--text-secondary); }
+  .gridline { stroke: var(--gridline); stroke-width: 1; }
+  .baseline { stroke: var(--baseline); stroke-width: 1; }
+  .bar-label { font-size: 11px; fill: var(--text-secondary); }
+  .bar-value-label { font-size: 11px; fill: var(--text-primary); font-weight: 650; }
+
+  .tooltip {
+    position: absolute; pointer-events: none; z-index: 20;
+    background: var(--text-primary); color: var(--surface-1);
+    font-size: 11px; padding: 6px 9px; border-radius: 6px;
+    line-height: 1.5; white-space: nowrap; opacity: 0; transition: opacity 0.08s;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+  }
+  .tooltip .t-value { font-weight: 700; }
+  .tooltip-row { display: flex; align-items: center; gap: 6px; }
+  .tooltip-key { display: inline-block; width: 8px; height: 2px; background: var(--series-1); }
+
+  .footer-note { font-size: 11px; color: var(--text-muted); margin-top: 18px; text-align: center; }
+
+  .section-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--text-muted); margin: 0 0 8px 2px;
+  }
+</style>
+
+<div class="viz-root">
+  <div class="wrap">
+    <div class="header">
+      <h1>Swedish Housing Market Dashboard</h1>
+      <p>Villas / one- and two-dwelling buildings (småhus), by county — Statistics Sweden (SCB), table BO0501O3, 2000–2025</p>
+    </div>
+
+    <div class="section-title">Filters</div>
+    <div class="filters">
+      <div class="filter-group">
+        <label for="yearFrom">Year from</label>
+        <select id="yearFrom"></select>
+      </div>
+      <div class="filter-group">
+        <label for="yearTo">Year to</label>
+        <select id="yearTo"></select>
+      </div>
+      <div class="filter-group">
+        <label for="countySel">County</label>
+        <select id="countySel"></select>
+      </div>
+      <button class="reset-btn" id="resetBtn">Reset filters</button>
+    </div>
+
+    <div class="section-title">Key metrics</div>
+    <div class="kpi-row">
+      <div class="stat-tile"><div class="label">Total sales</div><div class="value" id="kpiTotalSales">–</div><div class="sub">properties sold (count)</div></div>
+      <div class="stat-tile"><div class="label">Average price</div><div class="value" id="kpiAvgPrice">–</div><div class="sub">1,000 SEK per property, volume-weighted</div></div>
+      <div class="stat-tile"><div class="label">Average assessed value</div><div class="value" id="kpiAvgAssessed">–</div><div class="sub">1,000 SEK per property, volume-weighted</div></div>
+      <div class="stat-tile"><div class="label">Avg purchase-price coefficient</div><div class="value" id="kpiCoefficient">–</div><div class="sub">ratio, price ÷ assessed value (K/T-tal)</div></div>
+    </div>
+
+    <div class="section-title">Trends &amp; comparisons</div>
+    <div class="chart-grid">
+      <figure class="chart-card">
+        <div class="card-title">Housing price trend</div>
+        <div class="card-sub" id="trendSub">Average purchase price by year</div>
+        <div id="trendChart"></div>
+      </figure>
+      <figure class="chart-card">
+        <div class="card-title">Sales volume by year</div>
+        <div class="card-sub">Number of properties sold</div>
+        <div id="volumeChart"></div>
+      </figure>
+      <figure class="chart-card">
+        <div class="card-title">Average price by county</div>
+        <div class="card-sub">1,000 SEK per property, volume-weighted over selected years</div>
+        <div id="priceByCountyChart"></div>
+      </figure>
+      <figure class="chart-card">
+        <div class="card-title">Avg purchase-price coefficient by county</div>
+        <div class="card-sub">Sale price ÷ assessed value — above 1.0 means selling above assessed value</div>
+        <div id="coeffByCountyChart"></div>
+      </figure>
+    </div>
+
+    <div class="footer-note">MVP v1 — villas only. Source: Statistics Sweden (SCB), Statistikdatabasen, table BO0501O3.</div>
+  </div>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+const DATA = [{"CountyName":"Stockholm county","Year":2000,"NumberSold":6772,"AvgPrice":1968,"AvgAssessed":778,"Coefficient":2.49},{"CountyName":"Stockholm county","Year":2001,"NumberSold":7409,"AvgPrice":2192,"AvgAssessed":784,"Coefficient":2.76},{"CountyName":"Stockholm county","Year":2002,"NumberSold":7609,"AvgPrice":2349,"AvgAssessed":790,"Coefficient":2.97},{"CountyName":"Stockholm county","Year":2003,"NumberSold":8850,"AvgPrice":2432,"AvgAssessed":1652,"Coefficient":1.52},{"CountyName":"Stockholm county","Year":2004,"NumberSold":9192,"AvgPrice":2579,"AvgAssessed":1632,"Coefficient":1.64},{"CountyName":"Stockholm county","Year":2005,"NumberSold":9590,"AvgPrice":2742,"AvgAssessed":1610,"Coefficient":1.76},{"CountyName":"Stockholm county","Year":2006,"NumberSold":9097,"AvgPrice":3077,"AvgAssessed":1902,"Coefficient":1.62},{"CountyName":"Stockholm county","Year":2007,"NumberSold":9618,"AvgPrice":3476,"AvgAssessed":1866,"Coefficient":1.85},{"CountyName":"Stockholm county","Year":2008,"NumberSold":8471,"AvgPrice":3477,"AvgAssessed":1832,"Coefficient":1.89},{"CountyName":"Stockholm county","Year":2009,"NumberSold":8423,"AvgPrice":3518,"AvgAssessed":2568,"Coefficient":1.38},{"CountyName":"Stockholm county","Year":2010,"NumberSold":8470,"AvgPrice":3783,"AvgAssessed":2505,"Coefficient":1.52},{"CountyName":"Stockholm county","Year":2011,"NumberSold":8164,"AvgPrice":3809,"AvgAssessed":2481,"Coefficient":1.53},{"CountyName":"Stockholm county","Year":2012,"NumberSold":8240,"AvgPrice":3843,"AvgAssessed":2822,"Coefficient":1.37},{"CountyName":"Stockholm county","Year":2013,"NumberSold":8678,"AvgPrice":4271,"AvgAssessed":2965,"Coefficient":1.44},{"CountyName":"Stockholm county","Year":2014,"NumberSold":9009,"AvgPrice":4646,"AvgAssessed":2988,"Coefficient":1.56},{"CountyName":"Stockholm county","Year":2015,"NumberSold":9662,"AvgPrice":4983,"AvgAssessed":2944,"Coefficient":1.72},{"CountyName":"Stockholm county","Year":2016,"NumberSold":8654,"AvgPrice":5579,"AvgAssessed":2916,"Coefficient":1.95},{"CountyName":"Stockholm county","Year":2017,"NumberSold":8473,"AvgPrice":5959,"AvgAssessed":2946,"Coefficient":2.06},{"CountyName":"Stockholm county","Year":2018,"NumberSold":8313,"AvgPrice":5620,"AvgAssessed":4130,"Coefficient":1.39},{"CountyName":"Stockholm county","Year":2019,"NumberSold":8528,"AvgPrice":5667,"AvgAssessed":4143,"Coefficient":1.4},{"CountyName":"Stockholm county","Year":2020,"NumberSold":8935,"AvgPrice":6038,"AvgAssessed":4135,"Coefficient":1.49},{"CountyName":"Stockholm county","Year":2021,"NumberSold":9920,"AvgPrice":6928,"AvgAssessed":4061,"Coefficient":1.72},{"CountyName":"Stockholm county","Year":2022,"NumberSold":8579,"AvgPrice":7136,"AvgAssessed":3961,"Coefficient":1.8},{"CountyName":"Stockholm county","Year":2023,"NumberSold":7085,"AvgPrice":6671,"AvgAssessed":4150,"Coefficient":1.6},{"CountyName":"Stockholm county","Year":2024,"NumberSold":8448,"AvgPrice":6748,"AvgAssessed":5493,"Coefficient":1.23},{"CountyName":"Stockholm county","Year":2025,"NumberSold":9432,"AvgPrice":6961,"AvgAssessed":5508,"Coefficient":1.26},{"CountyName":"Uppsala county","Year":2000,"NumberSold":1652,"AvgPrice":1049,"AvgAssessed":486,"Coefficient":2.08},{"CountyName":"Uppsala county","Year":2001,"NumberSold":1702,"AvgPrice":1222,"AvgAssessed":492,"Coefficient":2.39},{"CountyName":"Uppsala county","Year":2002,"NumberSold":1623,"AvgPrice":1336,"AvgAssessed":488,"Coefficient":2.63},{"CountyName":"Uppsala county","Year":2003,"NumberSold":1755,"AvgPrice":1438,"AvgAssessed":899,"Coefficient":1.64},{"CountyName":"Uppsala county","Year":2004,"NumberSold":1833,"AvgPrice":1570,"AvgAssessed":913,"Coefficient":1.79},{"CountyName":"Uppsala county","Year":2005,"NumberSold":1840,"AvgPrice":1602,"AvgAssessed":877,"Coefficient":1.89},{"CountyName":"Uppsala county","Year":2006,"NumberSold":1800,"AvgPrice":1810,"AvgAssessed":1122,"Coefficient":1.63},{"CountyName":"Uppsala county","Year":2007,"NumberSold":2203,"AvgPrice":1906,"AvgAssessed":1085,"Coefficient":1.78},{"CountyName":"Uppsala county","Year":2008,"NumberSold":1973,"AvgPrice":1963,"AvgAssessed":1079,"Coefficient":1.85},{"CountyName":"Uppsala county","Year":2009,"NumberSold":1878,"AvgPrice":1992,"AvgAssessed":1369,"Coefficient":1.5},{"CountyName":"Uppsala county","Year":2010,"NumberSold":1918,"AvgPrice":2160,"AvgAssessed":1367,"Coefficient":1.61},{"CountyName":"Uppsala county","Year":2011,"NumberSold":1848,"AvgPrice":2184,"AvgAssessed":1364,"Coefficient":1.61},{"CountyName":"Uppsala county","Year":2012,"NumberSold":1954,"AvgPrice":2309,"AvgAssessed":1627,"Coefficient":1.44},{"CountyName":"Uppsala county","Year":2013,"NumberSold":1904,"AvgPrice":2379,"AvgAssessed":1611,"Coefficient":1.49},{"CountyName":"Uppsala county","Year":2014,"NumberSold":2065,"AvgPrice":2500,"AvgAssessed":1577,"Coefficient":1.61},{"CountyName":"Uppsala county","Year":2015,"NumberSold":2193,"AvgPrice":2781,"AvgAssessed":1659,"Coefficient":1.72},{"CountyName":"Uppsala county","Year":2016,"NumberSold":2114,"AvgPrice":3081,"AvgAssessed":1665,"Coefficient":1.92},{"CountyName":"Uppsala county","Year":2017,"NumberSold":1989,"AvgPrice":3173,"AvgAssessed":1638,"Coefficient":2.04},{"CountyName":"Uppsala county","Year":2018,"NumberSold":2005,"AvgPrice":3137,"AvgAssessed":2179,"Coefficient":1.52},{"CountyName":"Uppsala county","Year":2019,"NumberSold":2026,"AvgPrice":3118,"AvgAssessed":2125,"Coefficient":1.57},{"CountyName":"Uppsala county","Year":2020,"NumberSold":2069,"AvgPrice":3387,"AvgAssessed":2179,"Coefficient":1.67},{"CountyName":"Uppsala county","Year":2021,"NumberSold":2169,"AvgPrice":4020,"AvgAssessed":2397,"Coefficient":1.75},{"CountyName":"Uppsala county","Year":2022,"NumberSold":2031,"AvgPrice":4083,"AvgAssessed":2303,"Coefficient":1.84},{"CountyName":"Uppsala county","Year":2023,"NumberSold":1777,"AvgPrice":3757,"AvgAssessed":2359,"Coefficient":1.64},{"CountyName":"Uppsala county","Year":2024,"NumberSold":1989,"AvgPrice":3827,"AvgAssessed":3074,"Coefficient":1.26},{"CountyName":"Uppsala county","Year":2025,"NumberSold":2137,"AvgPrice":3969,"AvgAssessed":3096,"Coefficient":1.31},{"CountyName":"Södermanland county","Year":2000,"NumberSold":1695,"AvgPrice":854,"AvgAssessed":445,"Coefficient":1.89},{"CountyName":"Södermanland county","Year":2001,"NumberSold":1699,"AvgPrice":911,"AvgAssessed":445,"Coefficient":2.03},{"CountyName":"Södermanland county","Year":2002,"NumberSold":1645,"AvgPrice":972,"AvgAssessed":436,"Coefficient":2.2},{"CountyName":"Södermanland county","Year":2003,"NumberSold":1681,"AvgPrice":1084,"AvgAssessed":637,"Coefficient":1.7},{"CountyName":"Södermanland county","Year":2004,"NumberSold":1713,"AvgPrice":1185,"AvgAssessed":652,"Coefficient":1.81},{"CountyName":"Södermanland county","Year":2005,"NumberSold":1863,"AvgPrice":1307,"AvgAssessed":663,"Coefficient":1.97},{"CountyName":"Södermanland county","Year":2006,"NumberSold":1850,"AvgPrice":1492,"AvgAssessed":915,"Coefficient":1.65},{"CountyName":"Södermanland county","Year":2007,"NumberSold":2047,"AvgPrice":1577,"AvgAssessed":902,"Coefficient":1.76},{"CountyName":"Södermanland county","Year":2008,"NumberSold":1821,"AvgPrice":1594,"AvgAssessed":880,"Coefficient":1.82},{"CountyName":"Södermanland county","Year":2009,"NumberSold":1646,"AvgPrice":1665,"AvgAssessed":1162,"Coefficient":1.45},{"CountyName":"Södermanland county","Year":2010,"NumberSold":1724,"AvgPrice":1753,"AvgAssessed":1165,"Coefficient":1.53},{"CountyName":"Södermanland county","Year":2011,"NumberSold":1710,"AvgPrice":1730,"AvgAssessed":1168,"Coefficient":1.5},{"CountyName":"Södermanland county","Year":2012,"NumberSold":1536,"AvgPrice":1741,"AvgAssessed":1292,"Coefficient":1.35},{"CountyName":"Södermanland county","Year":2013,"NumberSold":1643,"AvgPrice":1839,"AvgAssessed":1298,"Coefficient":1.42},{"CountyName":"Södermanland county","Year":2014,"NumberSold":1702,"AvgPrice":1899,"AvgAssessed":1262,"Coefficient":1.51},{"CountyName":"Södermanland county","Year":2015,"NumberSold":2030,"AvgPrice":2184,"AvgAssessed":1300,"Coefficient":1.7},{"CountyName":"Södermanland county","Year":2016,"NumberSold":1804,"AvgPrice":2364,"AvgAssessed":1275,"Coefficient":1.92},{"CountyName":"Södermanland county","Year":2017,"NumberSold":1884,"AvgPrice":2554,"AvgAssessed":1255,"Coefficient":2.09},{"CountyName":"Södermanland county","Year":2018,"NumberSold":1829,"AvgPrice":2628,"AvgAssessed":1681,"Coefficient":1.61},{"CountyName":"Södermanland county","Year":2019,"NumberSold":1942,"AvgPrice":2748,"AvgAssessed":1714,"Coefficient":1.66},{"CountyName":"Södermanland county","Year":2020,"NumberSold":2005,"AvgPrice":2849,"AvgAssessed":1706,"Coefficient":1.75},{"CountyName":"Södermanland county","Year":2021,"NumberSold":2047,"AvgPrice":3361,"AvgAssessed":1953,"Coefficient":1.78},{"CountyName":"Södermanland county","Year":2022,"NumberSold":1906,"AvgPrice":3609,"AvgAssessed":1959,"Coefficient":1.88},{"CountyName":"Södermanland county","Year":2023,"NumberSold":1550,"AvgPrice":3222,"AvgAssessed":1976,"Coefficient":1.66},{"CountyName":"Södermanland county","Year":2024,"NumberSold":1748,"AvgPrice":3252,"AvgAssessed":2620,"Coefficient":1.25},{"CountyName":"Södermanland county","Year":2025,"NumberSold":1848,"AvgPrice":3365,"AvgAssessed":2665,"Coefficient":1.27},{"CountyName":"Östergötland county","Year":2000,"NumberSold":2155,"AvgPrice":824,"AvgAssessed":444,"Coefficient":1.84},{"CountyName":"Östergötland county","Year":2001,"NumberSold":2175,"AvgPrice":877,"AvgAssessed":439,"Coefficient":1.96},{"CountyName":"Östergötland county","Year":2002,"NumberSold":2127,"AvgPrice":951,"AvgAssessed":439,"Coefficient":2.11},{"CountyName":"Östergötland county","Year":2003,"NumberSold":2226,"AvgPrice":1067,"AvgAssessed":666,"Coefficient":1.61},{"CountyName":"Östergötland county","Year":2004,"NumberSold":2297,"AvgPrice":1155,"AvgAssessed":651,"Coefficient":1.76},{"CountyName":"Östergötland county","Year":2005,"NumberSold":2450,"AvgPrice":1278,"AvgAssessed":651,"Coefficient":1.95},{"CountyName":"Östergötland county","Year":2006,"NumberSold":2501,"AvgPrice":1439,"AvgAssessed":846,"Coefficient":1.72},{"CountyName":"Östergötland county","Year":2007,"NumberSold":2669,"AvgPrice":1563,"AvgAssessed":855,"Coefficient":1.86},{"CountyName":"Östergötland county","Year":2008,"NumberSold":2427,"AvgPrice":1568,"AvgAssessed":835,"Coefficient":1.92},{"CountyName":"Östergötland county","Year":2009,"NumberSold":2146,"AvgPrice":1671,"AvgAssessed":1133,"Coefficient":1.49},{"CountyName":"Östergötland county","Year":2010,"NumberSold":2256,"AvgPrice":1751,"AvgAssessed":1134,"Coefficient":1.57},{"CountyName":"Östergötland county","Year":2011,"NumberSold":2164,"AvgPrice":1805,"AvgAssessed":1168,"Coefficient":1.55},{"CountyName":"Östergötland county","Year":2012,"NumberSold":2131,"AvgPrice":1840,"AvgAssessed":1305,"Coefficient":1.43},{"CountyName":"Östergötland county","Year":2013,"NumberSold":2274,"AvgPrice":1894,"AvgAssessed":1295,"Coefficient":1.48},{"CountyName":"Östergötland county","Year":2014,"NumberSold":2285,"AvgPrice":1985,"AvgAssessed":1264,"Coefficient":1.59},{"CountyName":"Östergötland county","Year":2015,"NumberSold":2519,"AvgPrice":2237,"AvgAssessed":1321,"Coefficient":1.74},{"CountyName":"Östergötland county","Year":2016,"NumberSold":2298,"AvgPrice":2418,"AvgAssessed":1313,"Coefficient":1.92},{"CountyName":"Östergötland county","Year":2017,"NumberSold":2307,"AvgPrice":2596,"AvgAssessed":1262,"Coefficient":2.15},{"CountyName":"Östergötland county","Year":2018,"NumberSold":2331,"AvgPrice":2764,"AvgAssessed":1730,"Coefficient":1.68},{"CountyName":"Östergötland county","Year":2019,"NumberSold":2437,"AvgPrice":2887,"AvgAssessed":1753,"Coefficient":1.74},{"CountyName":"Östergötland county","Year":2020,"NumberSold":2372,"AvgPrice":3015,"AvgAssessed":1743,"Coefficient":1.83},{"CountyName":"Östergötland county","Year":2021,"NumberSold":2420,"AvgPrice":3486,"AvgAssessed":2034,"Coefficient":1.79},{"CountyName":"Östergötland county","Year":2022,"NumberSold":2407,"AvgPrice":3662,"AvgAssessed":2028,"Coefficient":1.87},{"CountyName":"Östergötland county","Year":2023,"NumberSold":1953,"AvgPrice":3286,"AvgAssessed":2060,"Coefficient":1.65},{"CountyName":"Östergötland county","Year":2024,"NumberSold":2293,"AvgPrice":3342,"AvgAssessed":2644,"Coefficient":1.3},{"CountyName":"Östergötland county","Year":2025,"NumberSold":2497,"AvgPrice":3344,"AvgAssessed":2639,"Coefficient":1.31},{"CountyName":"Jönköping county","Year":2000,"NumberSold":2282,"AvgPrice":688,"AvgAssessed":366,"Coefficient":1.87},{"CountyName":"Jönköping county","Year":2001,"NumberSold":2283,"AvgPrice":742,"AvgAssessed":368,"Coefficient":1.99},{"CountyName":"Jönköping county","Year":2002,"NumberSold":2160,"AvgPrice":782,"AvgAssessed":363,"Coefficient":2.11},{"CountyName":"Jönköping county","Year":2003,"NumberSold":2231,"AvgPrice":843,"AvgAssessed":535,"Coefficient":1.57},{"CountyName":"Jönköping county","Year":2004,"NumberSold":2301,"AvgPrice":937,"AvgAssessed":554,"Coefficient":1.68},{"CountyName":"Jönköping county","Year":2005,"NumberSold":2428,"AvgPrice":1017,"AvgAssessed":553,"Coefficient":1.84},{"CountyName":"Jönköping county","Year":2006,"NumberSold":2585,"AvgPrice":1101,"AvgAssessed":675,"Coefficient":1.66},{"CountyName":"Jönköping county","Year":2007,"NumberSold":2689,"AvgPrice":1181,"AvgAssessed":672,"Coefficient":1.77},{"CountyName":"Jönköping county","Year":2008,"NumberSold":2477,"AvgPrice":1257,"AvgAssessed":677,"Coefficient":1.88},{"CountyName":"Jönköping county","Year":2009,"NumberSold":2113,"AvgPrice":1381,"AvgAssessed":916,"Coefficient":1.53},{"CountyName":"Jönköping county","Year":2010,"NumberSold":2148,"AvgPrice":1416,"AvgAssessed":885,"Coefficient":1.6},{"CountyName":"Jönköping county","Year":2011,"NumberSold":2072,"AvgPrice":1465,"AvgAssessed":919,"Coefficient":1.6},{"CountyName":"Jönköping county","Year":2012,"NumberSold":1989,"AvgPrice":1463,"AvgAssessed":1078,"Coefficient":1.38},{"CountyName":"Jönköping county","Year":2013,"NumberSold":2074,"AvgPrice":1548,"AvgAssessed":1092,"Coefficient":1.44},{"CountyName":"Jönköping county","Year":2014,"NumberSold":2119,"AvgPrice":1617,"AvgAssessed":1093,"Coefficient":1.5},{"CountyName":"Jönköping county","Year":2015,"NumberSold":2287,"AvgPrice":1729,"AvgAssessed":1054,"Coefficient":1.65},{"CountyName":"Jönköping county","Year":2016,"NumberSold":2217,"AvgPrice":1877,"AvgAssessed":1047,"Coefficient":1.81},{"CountyName":"Jönköping county","Year":2017,"NumberSold":2192,"AvgPrice":2032,"AvgAssessed":1012,"Coefficient":2.04},{"CountyName":"Jönköping county","Year":2018,"NumberSold":2227,"AvgPrice":2175,"AvgAssessed":1335,"Coefficient":1.72},{"CountyName":"Jönköping county","Year":2019,"NumberSold":2246,"AvgPrice":2179,"AvgAssessed":1320,"Coefficient":1.76},{"CountyName":"Jönköping county","Year":2020,"NumberSold":2282,"AvgPrice":2334,"AvgAssessed":1316,"Coefficient":1.9},{"CountyName":"Jönköping county","Year":2021,"NumberSold":2439,"AvgPrice":2648,"AvgAssessed":1598,"Coefficient":1.74},{"CountyName":"Jönköping county","Year":2022,"NumberSold":2318,"AvgPrice":2812,"AvgAssessed":1593,"Coefficient":1.84},{"CountyName":"Jönköping county","Year":2023,"NumberSold":1837,"AvgPrice":2535,"AvgAssessed":1607,"Coefficient":1.65},{"CountyName":"Jönköping county","Year":2024,"NumberSold":2035,"AvgPrice":2695,"AvgAssessed":2136,"Coefficient":1.31},{"CountyName":"Jönköping county","Year":2025,"NumberSold":2200,"AvgPrice":2862,"AvgAssessed":2201,"Coefficient":1.35},{"CountyName":"Kronoberg county","Year":2000,"NumberSold":1154,"AvgPrice":614,"AvgAssessed":347,"Coefficient":1.74},{"CountyName":"Kronoberg county","Year":2001,"NumberSold":1144,"AvgPrice":672,"AvgAssessed":360,"Coefficient":1.83},{"CountyName":"Kronoberg county","Year":2002,"NumberSold":1211,"AvgPrice":685,"AvgAssessed":354,"Coefficient":1.9},{"CountyName":"Kronoberg county","Year":2003,"NumberSold":1196,"AvgPrice":739,"AvgAssessed":477,"Coefficient":1.54},{"CountyName":"Kronoberg county","Year":2004,"NumberSold":1299,"AvgPrice":838,"AvgAssessed":493,"Coefficient":1.69},{"CountyName":"Kronoberg county","Year":2005,"NumberSold":1448,"AvgPrice":883,"AvgAssessed":469,"Coefficient":1.86},{"CountyName":"Kronoberg county","Year":2006,"NumberSold":1465,"AvgPrice":1005,"AvgAssessed":595,"Coefficient":1.7},{"CountyName":"Kronoberg county","Year":2007,"NumberSold":1543,"AvgPrice":1145,"AvgAssessed":616,"Coefficient":1.87},{"CountyName":"Kronoberg county","Year":2008,"NumberSold":1313,"AvgPrice":1185,"AvgAssessed":619,"Coefficient":1.93},{"CountyName":"Kronoberg county","Year":2009,"NumberSold":1153,"AvgPrice":1221,"AvgAssessed":806,"Coefficient":1.53},{"CountyName":"Kronoberg county","Year":2010,"NumberSold":1138,"AvgPrice":1287,"AvgAssessed":826,"Coefficient":1.58},{"CountyName":"Kronoberg county","Year":2011,"NumberSold":1150,"AvgPrice":1322,"AvgAssessed":852,"Coefficient":1.55},{"CountyName":"Kronoberg county","Year":2012,"NumberSold":1010,"AvgPrice":1334,"AvgAssessed":956,"Coefficient":1.4},{"CountyName":"Kronoberg county","Year":2013,"NumberSold":969,"AvgPrice":1464,"AvgAssessed":1013,"Coefficient":1.43},{"CountyName":"Kronoberg county","Year":2014,"NumberSold":1139,"AvgPrice":1480,"AvgAssessed":974,"Coefficient":1.49},{"CountyName":"Kronoberg county","Year":2015,"NumberSold":1154,"AvgPrice":1547,"AvgAssessed":939,"Coefficient":1.64},{"CountyName":"Kronoberg county","Year":2016,"NumberSold":1120,"AvgPrice":1672,"AvgAssessed":918,"Coefficient":1.79},{"CountyName":"Kronoberg county","Year":2017,"NumberSold":1214,"AvgPrice":1849,"AvgAssessed":950,"Coefficient":1.96},{"CountyName":"Kronoberg county","Year":2018,"NumberSold":1189,"AvgPrice":1926,"AvgAssessed":1219,"Coefficient":1.72},{"CountyName":"Kronoberg county","Year":2019,"NumberSold":1296,"AvgPrice":1969,"AvgAssessed":1232,"Coefficient":1.74},{"CountyName":"Kronoberg county","Year":2020,"NumberSold":1287,"AvgPrice":2101,"AvgAssessed":1247,"Coefficient":1.85},{"CountyName":"Kronoberg county","Year":2021,"NumberSold":1402,"AvgPrice":2224,"AvgAssessed":1282,"Coefficient":1.84},{"CountyName":"Kronoberg county","Year":2022,"NumberSold":1242,"AvgPrice":2425,"AvgAssessed":1356,"Coefficient":1.91},{"CountyName":"Kronoberg county","Year":2023,"NumberSold":1074,"AvgPrice":2214,"AvgAssessed":1374,"Coefficient":1.74},{"CountyName":"Kronoberg county","Year":2024,"NumberSold":939,"AvgPrice":2222,"AvgAssessed":1728,"Coefficient":1.35},{"CountyName":"Kronoberg county","Year":2025,"NumberSold":1078,"AvgPrice":2408,"AvgAssessed":1860,"Coefficient":1.37},{"CountyName":"Kalmar county","Year":2000,"NumberSold":1908,"AvgPrice":599,"AvgAssessed":352,"Coefficient":1.67},{"CountyName":"Kalmar county","Year":2001,"NumberSold":1781,"AvgPrice":633,"AvgAssessed":354,"Coefficient":1.73},{"CountyName":"Kalmar county","Year":2002,"NumberSold":1842,"AvgPrice":674,"AvgAssessed":354,"Coefficient":1.83},{"CountyName":"Kalmar county","Year":2003,"NumberSold":1995,"AvgPrice":704,"AvgAssessed":449,"Coefficient":1.57},{"CountyName":"Kalmar county","Year":2004,"NumberSold":1872,"AvgPrice":743,"AvgAssessed":443,"Coefficient":1.67},{"CountyName":"Kalmar county","Year":2005,"NumberSold":2090,"AvgPrice":833,"AvgAssessed":456,"Coefficient":1.81},{"CountyName":"Kalmar county","Year":2006,"NumberSold":2017,"AvgPrice":971,"AvgAssessed":567,"Coefficient":1.69},{"CountyName":"Kalmar county","Year":2007,"NumberSold":2254,"AvgPrice":966,"AvgAssessed":526,"Coefficient":1.81},{"CountyName":"Kalmar county","Year":2008,"NumberSold":2138,"AvgPrice":1026,"AvgAssessed":530,"Coefficient":1.91},{"CountyName":"Kalmar county","Year":2009,"NumberSold":1825,"AvgPrice":1106,"AvgAssessed":699,"Coefficient":1.65},{"CountyName":"Kalmar county","Year":2010,"NumberSold":1781,"AvgPrice":1196,"AvgAssessed":711,"Coefficient":1.73},{"CountyName":"Kalmar county","Year":2011,"NumberSold":1727,"AvgPrice":1217,"AvgAssessed":743,"Coefficient":1.68},{"CountyName":"Kalmar county","Year":2012,"NumberSold":1542,"AvgPrice":1273,"AvgAssessed":928,"Coefficient":1.4},{"CountyName":"Kalmar county","Year":2013,"NumberSold":1647,"AvgPrice":1296,"AvgAssessed":919,"Coefficient":1.43},{"CountyName":"Kalmar county","Year":2014,"NumberSold":1799,"AvgPrice":1317,"AvgAssessed":896,"Coefficient":1.49},{"CountyName":"Kalmar county","Year":2015,"NumberSold":1972,"AvgPrice":1409,"AvgAssessed":882,"Coefficient":1.63},{"CountyName":"Kalmar county","Year":2016,"NumberSold":1857,"AvgPrice":1533,"AvgAssessed":864,"Coefficient":1.81},{"CountyName":"Kalmar county","Year":2017,"NumberSold":1882,"AvgPrice":1693,"AvgAssessed":884,"Coefficient":1.94},{"CountyName":"Kalmar county","Year":2018,"NumberSold":1814,"AvgPrice":1757,"AvgAssessed":1079,"Coefficient":1.74},{"CountyName":"Kalmar county","Year":2019,"NumberSold":1998,"AvgPrice":1726,"AvgAssessed":1033,"Coefficient":1.79},{"CountyName":"Kalmar county","Year":2020,"NumberSold":1915,"AvgPrice":1920,"AvgAssessed":1064,"Coefficient":1.94},{"CountyName":"Kalmar county","Year":2021,"NumberSold":2028,"AvgPrice":2114,"AvgAssessed":1226,"Coefficient":1.83},{"CountyName":"Kalmar county","Year":2022,"NumberSold":1917,"AvgPrice":2240,"AvgAssessed":1217,"Coefficient":1.96},{"CountyName":"Kalmar county","Year":2023,"NumberSold":1629,"AvgPrice":2150,"AvgAssessed":1284,"Coefficient":1.78},{"CountyName":"Kalmar county","Year":2024,"NumberSold":1651,"AvgPrice":2301,"AvgAssessed":1705,"Coefficient":1.42},{"CountyName":"Kalmar county","Year":2025,"NumberSold":1787,"AvgPrice":2322,"AvgAssessed":1715,"Coefficient":1.44},{"CountyName":"Gotland county","Year":2000,"NumberSold":378,"AvgPrice":779,"AvgAssessed":395,"Coefficient":1.95},{"CountyName":"Gotland county","Year":2001,"NumberSold":355,"AvgPrice":831,"AvgAssessed":382,"Coefficient":2.15},{"CountyName":"Gotland county","Year":2002,"NumberSold":330,"AvgPrice":933,"AvgAssessed":383,"Coefficient":2.4},{"CountyName":"Gotland county","Year":2003,"NumberSold":360,"AvgPrice":1049,"AvgAssessed":643,"Coefficient":1.64},{"CountyName":"Gotland county","Year":2004,"NumberSold":355,"AvgPrice":1228,"AvgAssessed":638,"Coefficient":1.96},{"CountyName":"Gotland county","Year":2005,"NumberSold":413,"AvgPrice":1294,"AvgAssessed":658,"Coefficient":2},{"CountyName":"Gotland county","Year":2006,"NumberSold":393,"AvgPrice":1404,"AvgAssessed":875,"Coefficient":1.62},{"CountyName":"Gotland county","Year":2007,"NumberSold":443,"AvgPrice":1661,"AvgAssessed":955,"Coefficient":1.76},{"CountyName":"Gotland county","Year":2008,"NumberSold":392,"AvgPrice":1700,"AvgAssessed":967,"Coefficient":1.8},{"CountyName":"Gotland county","Year":2009,"NumberSold":374,"AvgPrice":1707,"AvgAssessed":1216,"Coefficient":1.45},{"CountyName":"Gotland county","Year":2010,"NumberSold":398,"AvgPrice":1868,"AvgAssessed":1172,"Coefficient":1.64},{"CountyName":"Gotland county","Year":2011,"NumberSold":371,"AvgPrice":1852,"AvgAssessed":1153,"Coefficient":1.66},{"CountyName":"Gotland county","Year":2012,"NumberSold":364,"AvgPrice":1908,"AvgAssessed":1349,"Coefficient":1.41},{"CountyName":"Gotland county","Year":2013,"NumberSold":361,"AvgPrice":2001,"AvgAssessed":1372,"Coefficient":1.43},{"CountyName":"Gotland county","Year":2014,"NumberSold":447,"AvgPrice":2091,"AvgAssessed":1382,"Coefficient":1.49},{"CountyName":"Gotland county","Year":2015,"NumberSold":376,"AvgPrice":2274,"AvgAssessed":1416,"Coefficient":1.6},{"CountyName":"Gotland county","Year":2016,"NumberSold":336,"AvgPrice":2567,"AvgAssessed":1410,"Coefficient":1.83},{"CountyName":"Gotland county","Year":2017,"NumberSold":367,"AvgPrice":2831,"AvgAssessed":1433,"Coefficient":1.99},{"CountyName":"Gotland county","Year":2018,"NumberSold":387,"AvgPrice":2937,"AvgAssessed":1863,"Coefficient":1.65},{"CountyName":"Gotland county","Year":2019,"NumberSold":360,"AvgPrice":3002,"AvgAssessed":1820,"Coefficient":1.72},{"CountyName":"Gotland county","Year":2020,"NumberSold":383,"AvgPrice":3141,"AvgAssessed":1788,"Coefficient":1.87},{"CountyName":"Gotland county","Year":2021,"NumberSold":370,"AvgPrice":3657,"AvgAssessed":2071,"Coefficient":1.86},{"CountyName":"Gotland county","Year":2022,"NumberSold":358,"AvgPrice":3974,"AvgAssessed":2086,"Coefficient":1.99},{"CountyName":"Gotland county","Year":2023,"NumberSold":358,"AvgPrice":3643,"AvgAssessed":2105,"Coefficient":1.82},{"CountyName":"Gotland county","Year":2024,"NumberSold":349,"AvgPrice":3953,"AvgAssessed":2942,"Coefficient":1.39},{"CountyName":"Gotland county","Year":2025,"NumberSold":358,"AvgPrice":4002,"AvgAssessed":2954,"Coefficient":1.39},{"CountyName":"Blekinge county","Year":2000,"NumberSold":1190,"AvgPrice":670,"AvgAssessed":365,"Coefficient":1.82},{"CountyName":"Blekinge county","Year":2001,"NumberSold":1095,"AvgPrice":699,"AvgAssessed":360,"Coefficient":1.92},{"CountyName":"Blekinge county","Year":2002,"NumberSold":1155,"AvgPrice":729,"AvgAssessed":359,"Coefficient":2},{"CountyName":"Blekinge county","Year":2003,"NumberSold":1165,"AvgPrice":797,"AvgAssessed":513,"Coefficient":1.57},{"CountyName":"Blekinge county","Year":2004,"NumberSold":1282,"AvgPrice":861,"AvgAssessed":517,"Coefficient":1.66},{"CountyName":"Blekinge county","Year":2005,"NumberSold":1325,"AvgPrice":944,"AvgAssessed":526,"Coefficient":1.8},{"CountyName":"Blekinge county","Year":2006,"NumberSold":1283,"AvgPrice":1038,"AvgAssessed":615,"Coefficient":1.69},{"CountyName":"Blekinge county","Year":2007,"NumberSold":1480,"AvgPrice":1138,"AvgAssessed":627,"Coefficient":1.81},{"CountyName":"Blekinge county","Year":2008,"NumberSold":1211,"AvgPrice":1122,"AvgAssessed":599,"Coefficient":1.88},{"CountyName":"Blekinge county","Year":2009,"NumberSold":1050,"AvgPrice":1189,"AvgAssessed":784,"Coefficient":1.53},{"CountyName":"Blekinge county","Year":2010,"NumberSold":1072,"AvgPrice":1256,"AvgAssessed":799,"Coefficient":1.58},{"CountyName":"Blekinge county","Year":2011,"NumberSold":916,"AvgPrice":1270,"AvgAssessed":818,"Coefficient":1.54},{"CountyName":"Blekinge county","Year":2012,"NumberSold":947,"AvgPrice":1278,"AvgAssessed":943,"Coefficient":1.35},{"CountyName":"Blekinge county","Year":2013,"NumberSold":918,"AvgPrice":1371,"AvgAssessed":991,"Coefficient":1.38},{"CountyName":"Blekinge county","Year":2014,"NumberSold":1086,"AvgPrice":1393,"AvgAssessed":983,"Coefficient":1.42},{"CountyName":"Blekinge county","Year":2015,"NumberSold":1090,"AvgPrice":1469,"AvgAssessed":948,"Coefficient":1.57},{"CountyName":"Blekinge county","Year":2016,"NumberSold":1057,"AvgPrice":1494,"AvgAssessed":889,"Coefficient":1.7},{"CountyName":"Blekinge county","Year":2017,"NumberSold":1082,"AvgPrice":1694,"AvgAssessed":940,"Coefficient":1.83},{"CountyName":"Blekinge county","Year":2018,"NumberSold":1149,"AvgPrice":1798,"AvgAssessed":1078,"Coefficient":1.74},{"CountyName":"Blekinge county","Year":2019,"NumberSold":1188,"AvgPrice":1873,"AvgAssessed":1071,"Coefficient":1.81},{"CountyName":"Blekinge county","Year":2020,"NumberSold":1174,"AvgPrice":1923,"AvgAssessed":1047,"Coefficient":1.92},{"CountyName":"Blekinge county","Year":2021,"NumberSold":1281,"AvgPrice":2240,"AvgAssessed":1299,"Coefficient":1.8},{"CountyName":"Blekinge county","Year":2022,"NumberSold":1147,"AvgPrice":2266,"AvgAssessed":1283,"Coefficient":1.84},{"CountyName":"Blekinge county","Year":2023,"NumberSold":928,"AvgPrice":2095,"AvgAssessed":1302,"Coefficient":1.67},{"CountyName":"Blekinge county","Year":2024,"NumberSold":1022,"AvgPrice":2188,"AvgAssessed":1646,"Coefficient":1.36},{"CountyName":"Blekinge county","Year":2025,"NumberSold":1210,"AvgPrice":2339,"AvgAssessed":1693,"Coefficient":1.41},{"CountyName":"Skåne county","Year":2000,"NumberSold":7576,"AvgPrice":955,"AvgAssessed":442,"Coefficient":2.08},{"CountyName":"Skåne county","Year":2001,"NumberSold":7486,"AvgPrice":1049,"AvgAssessed":447,"Coefficient":2.26},{"CountyName":"Skåne county","Year":2002,"NumberSold":7922,"AvgPrice":1113,"AvgAssessed":441,"Coefficient":2.43},{"CountyName":"Skåne county","Year":2003,"NumberSold":7998,"AvgPrice":1262,"AvgAssessed":758,"Coefficient":1.7},{"CountyName":"Skåne county","Year":2004,"NumberSold":8486,"AvgPrice":1417,"AvgAssessed":759,"Coefficient":1.92},{"CountyName":"Skåne county","Year":2005,"NumberSold":8809,"AvgPrice":1576,"AvgAssessed":760,"Coefficient":2.12},{"CountyName":"Skåne county","Year":2006,"NumberSold":9272,"AvgPrice":1821,"AvgAssessed":1023,"Coefficient":1.82},{"CountyName":"Skåne county","Year":2007,"NumberSold":9953,"AvgPrice":2019,"AvgAssessed":1027,"Coefficient":2.01},{"CountyName":"Skåne county","Year":2008,"NumberSold":8657,"AvgPrice":2012,"AvgAssessed":1019,"Coefficient":2.03},{"CountyName":"Skåne county","Year":2009,"NumberSold":7764,"AvgPrice":2107,"AvgAssessed":1491,"Coefficient":1.47},{"CountyName":"Skåne county","Year":2010,"NumberSold":8116,"AvgPrice":2253,"AvgAssessed":1490,"Coefficient":1.56},{"CountyName":"Skåne county","Year":2011,"NumberSold":7386,"AvgPrice":2253,"AvgAssessed":1505,"Coefficient":1.54},{"CountyName":"Skåne county","Year":2012,"NumberSold":6897,"AvgPrice":2247,"AvgAssessed":1687,"Coefficient":1.35},{"CountyName":"Skåne county","Year":2013,"NumberSold":7102,"AvgPrice":2275,"AvgAssessed":1670,"Coefficient":1.38},{"CountyName":"Skåne county","Year":2014,"NumberSold":7795,"AvgPrice":2376,"AvgAssessed":1688,"Coefficient":1.42},{"CountyName":"Skåne county","Year":2015,"NumberSold":8475,"AvgPrice":2520,"AvgAssessed":1631,"Coefficient":1.57},{"CountyName":"Skåne county","Year":2016,"NumberSold":8240,"AvgPrice":2676,"AvgAssessed":1597,"Coefficient":1.7},{"CountyName":"Skåne county","Year":2017,"NumberSold":8277,"AvgPrice":2867,"AvgAssessed":1564,"Coefficient":1.88},{"CountyName":"Skåne county","Year":2018,"NumberSold":8203,"AvgPrice":2986,"AvgAssessed":1895,"Coefficient":1.64},{"CountyName":"Skåne county","Year":2019,"NumberSold":8462,"AvgPrice":3120,"AvgAssessed":1896,"Coefficient":1.73},{"CountyName":"Skåne county","Year":2020,"NumberSold":8513,"AvgPrice":3341,"AvgAssessed":1890,"Coefficient":1.87},{"CountyName":"Skåne county","Year":2021,"NumberSold":9128,"AvgPrice":3878,"AvgAssessed":2210,"Coefficient":1.83},{"CountyName":"Skåne county","Year":2022,"NumberSold":8280,"AvgPrice":4086,"AvgAssessed":2215,"Coefficient":1.91},{"CountyName":"Skåne county","Year":2023,"NumberSold":6746,"AvgPrice":3689,"AvgAssessed":2224,"Coefficient":1.71},{"CountyName":"Skåne county","Year":2024,"NumberSold":7753,"AvgPrice":3960,"AvgAssessed":3080,"Coefficient":1.31},{"CountyName":"Skåne county","Year":2025,"NumberSold":8457,"AvgPrice":4110,"AvgAssessed":3114,"Coefficient":1.34},{"CountyName":"Halland county","Year":2000,"NumberSold":2075,"AvgPrice":984,"AvgAssessed":490,"Coefficient":1.95},{"CountyName":"Halland county","Year":2001,"NumberSold":1881,"AvgPrice":1063,"AvgAssessed":489,"Coefficient":2.11},{"CountyName":"Halland county","Year":2002,"NumberSold":1932,"AvgPrice":1111,"AvgAssessed":485,"Coefficient":2.23},{"CountyName":"Halland county","Year":2003,"NumberSold":1970,"AvgPrice":1235,"AvgAssessed":782,"Coefficient":1.59},{"CountyName":"Halland county","Year":2004,"NumberSold":1970,"AvgPrice":1468,"AvgAssessed":796,"Coefficient":1.87},{"CountyName":"Halland county","Year":2005,"NumberSold":2165,"AvgPrice":1691,"AvgAssessed":826,"Coefficient":2.09},{"CountyName":"Halland county","Year":2006,"NumberSold":2103,"AvgPrice":1829,"AvgAssessed":1071,"Coefficient":1.76},{"CountyName":"Halland county","Year":2007,"NumberSold":2307,"AvgPrice":2034,"AvgAssessed":1094,"Coefficient":1.93},{"CountyName":"Halland county","Year":2008,"NumberSold":2254,"AvgPrice":2030,"AvgAssessed":1047,"Coefficient":2},{"CountyName":"Halland county","Year":2009,"NumberSold":2041,"AvgPrice":2134,"AvgAssessed":1489,"Coefficient":1.46},{"CountyName":"Halland county","Year":2010,"NumberSold":1978,"AvgPrice":2293,"AvgAssessed":1488,"Coefficient":1.56},{"CountyName":"Halland county","Year":2011,"NumberSold":2018,"AvgPrice":2338,"AvgAssessed":1498,"Coefficient":1.58},{"CountyName":"Halland county","Year":2012,"NumberSold":1961,"AvgPrice":2390,"AvgAssessed":1735,"Coefficient":1.39},{"CountyName":"Halland county","Year":2013,"NumberSold":1994,"AvgPrice":2508,"AvgAssessed":1739,"Coefficient":1.45},{"CountyName":"Halland county","Year":2014,"NumberSold":2256,"AvgPrice":2634,"AvgAssessed":1755,"Coefficient":1.5},{"CountyName":"Halland county","Year":2015,"NumberSold":2263,"AvgPrice":2809,"AvgAssessed":1770,"Coefficient":1.61},{"CountyName":"Halland county","Year":2016,"NumberSold":2107,"AvgPrice":3073,"AvgAssessed":1755,"Coefficient":1.78},{"CountyName":"Halland county","Year":2017,"NumberSold":2096,"AvgPrice":3271,"AvgAssessed":1715,"Coefficient":1.96},{"CountyName":"Halland county","Year":2018,"NumberSold":2214,"AvgPrice":3352,"AvgAssessed":2240,"Coefficient":1.56},{"CountyName":"Halland county","Year":2019,"NumberSold":2194,"AvgPrice":3449,"AvgAssessed":2235,"Coefficient":1.63},{"CountyName":"Halland county","Year":2020,"NumberSold":2157,"AvgPrice":3696,"AvgAssessed":2219,"Coefficient":1.76},{"CountyName":"Halland county","Year":2021,"NumberSold":2322,"AvgPrice":4336,"AvgAssessed":2532,"Coefficient":1.76},{"CountyName":"Halland county","Year":2022,"NumberSold":2199,"AvgPrice":4460,"AvgAssessed":2471,"Coefficient":1.84},{"CountyName":"Halland county","Year":2023,"NumberSold":1779,"AvgPrice":4099,"AvgAssessed":2531,"Coefficient":1.65},{"CountyName":"Halland county","Year":2024,"NumberSold":2119,"AvgPrice":4320,"AvgAssessed":3429,"Coefficient":1.29},{"CountyName":"Halland county","Year":2025,"NumberSold":2402,"AvgPrice":4544,"AvgAssessed":3535,"Coefficient":1.32},{"CountyName":"Västra Götaland county","Year":2000,"NumberSold":8729,"AvgPrice":935,"AvgAssessed":472,"Coefficient":1.91},{"CountyName":"Västra Götaland county","Year":2001,"NumberSold":8434,"AvgPrice":1004,"AvgAssessed":473,"Coefficient":2.04},{"CountyName":"Västra Götaland county","Year":2002,"NumberSold":8504,"AvgPrice":1054,"AvgAssessed":467,"Coefficient":2.16},{"CountyName":"Västra Götaland county","Year":2003,"NumberSold":8720,"AvgPrice":1189,"AvgAssessed":738,"Coefficient":1.62},{"CountyName":"Västra Götaland county","Year":2004,"NumberSold":8945,"AvgPrice":1346,"AvgAssessed":745,"Coefficient":1.81},{"CountyName":"Västra Götaland county","Year":2005,"NumberSold":9467,"AvgPrice":1470,"AvgAssessed":744,"Coefficient":1.97},{"CountyName":"Västra Götaland county","Year":2006,"NumberSold":9254,"AvgPrice":1645,"AvgAssessed":978,"Coefficient":1.7},{"CountyName":"Västra Götaland county","Year":2007,"NumberSold":10316,"AvgPrice":1803,"AvgAssessed":979,"Coefficient":1.88},{"CountyName":"Västra Götaland county","Year":2008,"NumberSold":8979,"AvgPrice":1866,"AvgAssessed":976,"Coefficient":1.95},{"CountyName":"Västra Götaland county","Year":2009,"NumberSold":8161,"AvgPrice":1932,"AvgAssessed":1351,"Coefficient":1.46},{"CountyName":"Västra Götaland county","Year":2010,"NumberSold":8614,"AvgPrice":2056,"AvgAssessed":1322,"Coefficient":1.57},{"CountyName":"Västra Götaland county","Year":2011,"NumberSold":8296,"AvgPrice":2130,"AvgAssessed":1352,"Coefficient":1.58},{"CountyName":"Västra Götaland county","Year":2012,"NumberSold":7956,"AvgPrice":2187,"AvgAssessed":1553,"Coefficient":1.43},{"CountyName":"Västra Götaland county","Year":2013,"NumberSold":8547,"AvgPrice":2267,"AvgAssessed":1547,"Coefficient":1.48},{"CountyName":"Västra Götaland county","Year":2014,"NumberSold":8972,"AvgPrice":2389,"AvgAssessed":1542,"Coefficient":1.56},{"CountyName":"Västra Götaland county","Year":2015,"NumberSold":9191,"AvgPrice":2571,"AvgAssessed":1576,"Coefficient":1.67},{"CountyName":"Västra Götaland county","Year":2016,"NumberSold":8392,"AvgPrice":2806,"AvgAssessed":1540,"Coefficient":1.86},{"CountyName":"Västra Götaland county","Year":2017,"NumberSold":8550,"AvgPrice":3125,"AvgAssessed":1562,"Coefficient":2.06},{"CountyName":"Västra Götaland county","Year":2018,"NumberSold":8630,"AvgPrice":3132,"AvgAssessed":2042,"Coefficient":1.63},{"CountyName":"Västra Götaland county","Year":2019,"NumberSold":8721,"AvgPrice":3219,"AvgAssessed":2052,"Coefficient":1.68},{"CountyName":"Västra Götaland county","Year":2020,"NumberSold":8870,"AvgPrice":3421,"AvgAssessed":2068,"Coefficient":1.78},{"CountyName":"Västra Götaland county","Year":2021,"NumberSold":9460,"AvgPrice":3933,"AvgAssessed":2358,"Coefficient":1.73},{"CountyName":"Västra Götaland county","Year":2022,"NumberSold":8876,"AvgPrice":4078,"AvgAssessed":2338,"Coefficient":1.82},{"CountyName":"Västra Götaland county","Year":2023,"NumberSold":7385,"AvgPrice":3717,"AvgAssessed":2366,"Coefficient":1.64},{"CountyName":"Västra Götaland county","Year":2024,"NumberSold":8293,"AvgPrice":3849,"AvgAssessed":3055,"Coefficient":1.31},{"CountyName":"Västra Götaland county","Year":2025,"NumberSold":9045,"AvgPrice":4021,"AvgAssessed":3120,"Coefficient":1.34},{"CountyName":"Värmland county","Year":2000,"NumberSold":1845,"AvgPrice":580,"AvgAssessed":349,"Coefficient":1.62},{"CountyName":"Värmland county","Year":2001,"NumberSold":1805,"AvgPrice":588,"AvgAssessed":343,"Coefficient":1.66},{"CountyName":"Värmland county","Year":2002,"NumberSold":1934,"AvgPrice":623,"AvgAssessed":339,"Coefficient":1.77},{"CountyName":"Värmland county","Year":2003,"NumberSold":1975,"AvgPrice":631,"AvgAssessed":394,"Coefficient":1.6},{"CountyName":"Värmland county","Year":2004,"NumberSold":2001,"AvgPrice":681,"AvgAssessed":391,"Coefficient":1.71},{"CountyName":"Värmland county","Year":2005,"NumberSold":2159,"AvgPrice":740,"AvgAssessed":388,"Coefficient":1.89},{"CountyName":"Värmland county","Year":2006,"NumberSold":2017,"AvgPrice":838,"AvgAssessed":502,"Coefficient":1.67},{"CountyName":"Värmland county","Year":2007,"NumberSold":2300,"AvgPrice":936,"AvgAssessed":514,"Coefficient":1.82},{"CountyName":"Värmland county","Year":2008,"NumberSold":2157,"AvgPrice":1003,"AvgAssessed":521,"Coefficient":1.94},{"CountyName":"Värmland county","Year":2009,"NumberSold":1774,"AvgPrice":1082,"AvgAssessed":702,"Coefficient":1.57},{"CountyName":"Värmland county","Year":2010,"NumberSold":1930,"AvgPrice":1157,"AvgAssessed":730,"Coefficient":1.59},{"CountyName":"Värmland county","Year":2011,"NumberSold":1816,"AvgPrice":1146,"AvgAssessed":727,"Coefficient":1.57},{"CountyName":"Värmland county","Year":2012,"NumberSold":1741,"AvgPrice":1102,"AvgAssessed":782,"Coefficient":1.43},{"CountyName":"Värmland county","Year":2013,"NumberSold":1688,"AvgPrice":1234,"AvgAssessed":843,"Coefficient":1.47},{"CountyName":"Värmland county","Year":2014,"NumberSold":1810,"AvgPrice":1293,"AvgAssessed":829,"Coefficient":1.56},{"CountyName":"Värmland county","Year":2015,"NumberSold":1857,"AvgPrice":1376,"AvgAssessed":825,"Coefficient":1.67},{"CountyName":"Värmland county","Year":2016,"NumberSold":1845,"AvgPrice":1444,"AvgAssessed":813,"Coefficient":1.8},{"CountyName":"Värmland county","Year":2017,"NumberSold":1887,"AvgPrice":1550,"AvgAssessed":805,"Coefficient":1.95},{"CountyName":"Värmland county","Year":2018,"NumberSold":1842,"AvgPrice":1623,"AvgAssessed":1016,"Coefficient":1.72},{"CountyName":"Värmland county","Year":2019,"NumberSold":1837,"AvgPrice":1738,"AvgAssessed":1058,"Coefficient":1.78},{"CountyName":"Värmland county","Year":2020,"NumberSold":1874,"AvgPrice":1810,"AvgAssessed":1014,"Coefficient":1.91},{"CountyName":"Värmland county","Year":2021,"NumberSold":1958,"AvgPrice":2051,"AvgAssessed":1174,"Coefficient":1.82},{"CountyName":"Värmland county","Year":2022,"NumberSold":1892,"AvgPrice":2236,"AvgAssessed":1181,"Coefficient":1.97},{"CountyName":"Värmland county","Year":2023,"NumberSold":1580,"AvgPrice":2077,"AvgAssessed":1209,"Coefficient":1.8},{"CountyName":"Värmland county","Year":2024,"NumberSold":1775,"AvgPrice":2206,"AvgAssessed":1673,"Coefficient":1.41},{"CountyName":"Värmland county","Year":2025,"NumberSold":1919,"AvgPrice":2265,"AvgAssessed":1687,"Coefficient":1.45},{"CountyName":"Örebro county","Year":2000,"NumberSold":1770,"AvgPrice":657,"AvgAssessed":360,"Coefficient":1.77},{"CountyName":"Örebro county","Year":2001,"NumberSold":1662,"AvgPrice":672,"AvgAssessed":359,"Coefficient":1.81},{"CountyName":"Örebro county","Year":2002,"NumberSold":1728,"AvgPrice":695,"AvgAssessed":361,"Coefficient":1.88},{"CountyName":"Örebro county","Year":2003,"NumberSold":1744,"AvgPrice":754,"AvgAssessed":485,"Coefficient":1.56},{"CountyName":"Örebro county","Year":2004,"NumberSold":1812,"AvgPrice":825,"AvgAssessed":498,"Coefficient":1.65},{"CountyName":"Örebro county","Year":2005,"NumberSold":1918,"AvgPrice":910,"AvgAssessed":496,"Coefficient":1.81},{"CountyName":"Örebro county","Year":2006,"NumberSold":1989,"AvgPrice":1004,"AvgAssessed":597,"Coefficient":1.7},{"CountyName":"Örebro county","Year":2007,"NumberSold":2103,"AvgPrice":1109,"AvgAssessed":600,"Coefficient":1.83},{"CountyName":"Örebro county","Year":2008,"NumberSold":1902,"AvgPrice":1177,"AvgAssessed":604,"Coefficient":1.95},{"CountyName":"Örebro county","Year":2009,"NumberSold":1710,"AvgPrice":1234,"AvgAssessed":830,"Coefficient":1.53},{"CountyName":"Örebro county","Year":2010,"NumberSold":1760,"AvgPrice":1257,"AvgAssessed":816,"Coefficient":1.57},{"CountyName":"Örebro county","Year":2011,"NumberSold":1652,"AvgPrice":1297,"AvgAssessed":839,"Coefficient":1.56},{"CountyName":"Örebro county","Year":2012,"NumberSold":1650,"AvgPrice":1302,"AvgAssessed":907,"Coefficient":1.46},{"CountyName":"Örebro county","Year":2013,"NumberSold":1634,"AvgPrice":1337,"AvgAssessed":883,"Coefficient":1.52},{"CountyName":"Örebro county","Year":2014,"NumberSold":1779,"AvgPrice":1488,"AvgAssessed":929,"Coefficient":1.58},{"CountyName":"Örebro county","Year":2015,"NumberSold":1879,"AvgPrice":1652,"AvgAssessed":990,"Coefficient":1.68},{"CountyName":"Örebro county","Year":2016,"NumberSold":1802,"AvgPrice":1787,"AvgAssessed":973,"Coefficient":1.88},{"CountyName":"Örebro county","Year":2017,"NumberSold":1862,"AvgPrice":1906,"AvgAssessed":975,"Coefficient":2.03},{"CountyName":"Örebro county","Year":2018,"NumberSold":1797,"AvgPrice":1930,"AvgAssessed":1249,"Coefficient":1.66},{"CountyName":"Örebro county","Year":2019,"NumberSold":1869,"AvgPrice":2005,"AvgAssessed":1239,"Coefficient":1.75},{"CountyName":"Örebro county","Year":2020,"NumberSold":1829,"AvgPrice":2139,"AvgAssessed":1240,"Coefficient":1.84},{"CountyName":"Örebro county","Year":2021,"NumberSold":1896,"AvgPrice":2529,"AvgAssessed":1444,"Coefficient":1.83},{"CountyName":"Örebro county","Year":2022,"NumberSold":1878,"AvgPrice":2621,"AvgAssessed":1442,"Coefficient":1.9},{"CountyName":"Örebro county","Year":2023,"NumberSold":1496,"AvgPrice":2366,"AvgAssessed":1415,"Coefficient":1.74},{"CountyName":"Örebro county","Year":2024,"NumberSold":1698,"AvgPrice":2512,"AvgAssessed":1947,"Coefficient":1.35},{"CountyName":"Örebro county","Year":2025,"NumberSold":1729,"AvgPrice":2567,"AvgAssessed":2006,"Coefficient":1.34},{"CountyName":"Västmanland county","Year":2000,"NumberSold":1475,"AvgPrice":762,"AvgAssessed":436,"Coefficient":1.72},{"CountyName":"Västmanland county","Year":2001,"NumberSold":1601,"AvgPrice":796,"AvgAssessed":443,"Coefficient":1.78},{"CountyName":"Västmanland county","Year":2002,"NumberSold":1464,"AvgPrice":864,"AvgAssessed":427,"Coefficient":1.96},{"CountyName":"Västmanland county","Year":2003,"NumberSold":1487,"AvgPrice":947,"AvgAssessed":583,"Coefficient":1.62},{"CountyName":"Västmanland county","Year":2004,"NumberSold":1567,"AvgPrice":1034,"AvgAssessed":582,"Coefficient":1.77},{"CountyName":"Västmanland county","Year":2005,"NumberSold":1504,"AvgPrice":1135,"AvgAssessed":581,"Coefficient":1.93},{"CountyName":"Västmanland county","Year":2006,"NumberSold":1516,"AvgPrice":1293,"AvgAssessed":775,"Coefficient":1.68},{"CountyName":"Västmanland county","Year":2007,"NumberSold":1561,"AvgPrice":1439,"AvgAssessed":788,"Coefficient":1.81},{"CountyName":"Västmanland county","Year":2008,"NumberSold":1290,"AvgPrice":1484,"AvgAssessed":779,"Coefficient":1.91},{"CountyName":"Västmanland county","Year":2009,"NumberSold":1225,"AvgPrice":1611,"AvgAssessed":1107,"Coefficient":1.48},{"CountyName":"Västmanland county","Year":2010,"NumberSold":1288,"AvgPrice":1594,"AvgAssessed":1061,"Coefficient":1.51},{"CountyName":"Västmanland county","Year":2011,"NumberSold":1234,"AvgPrice":1598,"AvgAssessed":1063,"Coefficient":1.51},{"CountyName":"Västmanland county","Year":2012,"NumberSold":1270,"AvgPrice":1699,"AvgAssessed":1249,"Coefficient":1.38},{"CountyName":"Västmanland county","Year":2013,"NumberSold":1331,"AvgPrice":1640,"AvgAssessed":1179,"Coefficient":1.41},{"CountyName":"Västmanland county","Year":2014,"NumberSold":1371,"AvgPrice":1828,"AvgAssessed":1228,"Coefficient":1.52},{"CountyName":"Västmanland county","Year":2015,"NumberSold":1466,"AvgPrice":2044,"AvgAssessed":1213,"Coefficient":1.72},{"CountyName":"Västmanland county","Year":2016,"NumberSold":1540,"AvgPrice":2208,"AvgAssessed":1168,"Coefficient":1.94},{"CountyName":"Västmanland county","Year":2017,"NumberSold":1466,"AvgPrice":2388,"AvgAssessed":1149,"Coefficient":2.17},{"CountyName":"Västmanland county","Year":2018,"NumberSold":1505,"AvgPrice":2453,"AvgAssessed":1554,"Coefficient":1.67},{"CountyName":"Västmanland county","Year":2019,"NumberSold":1484,"AvgPrice":2500,"AvgAssessed":1536,"Coefficient":1.73},{"CountyName":"Västmanland county","Year":2020,"NumberSold":1541,"AvgPrice":2735,"AvgAssessed":1629,"Coefficient":1.81},{"CountyName":"Västmanland county","Year":2021,"NumberSold":1512,"AvgPrice":3169,"AvgAssessed":1845,"Coefficient":1.8},{"CountyName":"Västmanland county","Year":2022,"NumberSold":1581,"AvgPrice":3370,"AvgAssessed":1897,"Coefficient":1.85},{"CountyName":"Västmanland county","Year":2023,"NumberSold":1277,"AvgPrice":3020,"AvgAssessed":1912,"Coefficient":1.64},{"CountyName":"Västmanland county","Year":2024,"NumberSold":1505,"AvgPrice":3141,"AvgAssessed":2520,"Coefficient":1.28},{"CountyName":"Västmanland county","Year":2025,"NumberSold":1621,"AvgPrice":3116,"AvgAssessed":2491,"Coefficient":1.29},{"CountyName":"Dalarna county","Year":2000,"NumberSold":1901,"AvgPrice":574,"AvgAssessed":370,"Coefficient":1.55},{"CountyName":"Dalarna county","Year":2001,"NumberSold":1705,"AvgPrice":591,"AvgAssessed":363,"Coefficient":1.62},{"CountyName":"Dalarna county","Year":2002,"NumberSold":1884,"AvgPrice":604,"AvgAssessed":355,"Coefficient":1.67},{"CountyName":"Dalarna county","Year":2003,"NumberSold":2001,"AvgPrice":643,"AvgAssessed":424,"Coefficient":1.51},{"CountyName":"Dalarna county","Year":2004,"NumberSold":2066,"AvgPrice":701,"AvgAssessed":429,"Coefficient":1.62},{"CountyName":"Dalarna county","Year":2005,"NumberSold":2182,"AvgPrice":767,"AvgAssessed":436,"Coefficient":1.74},{"CountyName":"Dalarna county","Year":2006,"NumberSold":2025,"AvgPrice":844,"AvgAssessed":495,"Coefficient":1.69},{"CountyName":"Dalarna county","Year":2007,"NumberSold":2380,"AvgPrice":938,"AvgAssessed":507,"Coefficient":1.84},{"CountyName":"Dalarna county","Year":2008,"NumberSold":2101,"AvgPrice":977,"AvgAssessed":509,"Coefficient":1.92},{"CountyName":"Dalarna county","Year":2009,"NumberSold":1934,"AvgPrice":1053,"AvgAssessed":664,"Coefficient":1.61},{"CountyName":"Dalarna county","Year":2010,"NumberSold":2064,"AvgPrice":1133,"AvgAssessed":671,"Coefficient":1.71},{"CountyName":"Dalarna county","Year":2011,"NumberSold":1857,"AvgPrice":1148,"AvgAssessed":670,"Coefficient":1.72},{"CountyName":"Dalarna county","Year":2012,"NumberSold":1830,"AvgPrice":1194,"AvgAssessed":817,"Coefficient":1.47},{"CountyName":"Dalarna county","Year":2013,"NumberSold":1872,"AvgPrice":1220,"AvgAssessed":814,"Coefficient":1.51},{"CountyName":"Dalarna county","Year":2014,"NumberSold":1976,"AvgPrice":1299,"AvgAssessed":812,"Coefficient":1.6},{"CountyName":"Dalarna county","Year":2015,"NumberSold":2143,"AvgPrice":1430,"AvgAssessed":831,"Coefficient":1.74},{"CountyName":"Dalarna county","Year":2016,"NumberSold":1853,"AvgPrice":1571,"AvgAssessed":841,"Coefficient":1.92},{"CountyName":"Dalarna county","Year":2017,"NumberSold":1980,"AvgPrice":1707,"AvgAssessed":822,"Coefficient":2.13},{"CountyName":"Dalarna county","Year":2018,"NumberSold":1872,"AvgPrice":1787,"AvgAssessed":1070,"Coefficient":1.75},{"CountyName":"Dalarna county","Year":2019,"NumberSold":2083,"AvgPrice":1858,"AvgAssessed":1074,"Coefficient":1.84},{"CountyName":"Dalarna county","Year":2020,"NumberSold":1959,"AvgPrice":1921,"AvgAssessed":1059,"Coefficient":1.93},{"CountyName":"Dalarna county","Year":2021,"NumberSold":2083,"AvgPrice":2288,"AvgAssessed":1288,"Coefficient":1.85},{"CountyName":"Dalarna county","Year":2022,"NumberSold":1952,"AvgPrice":2471,"AvgAssessed":1326,"Coefficient":1.94},{"CountyName":"Dalarna county","Year":2023,"NumberSold":1729,"AvgPrice":2221,"AvgAssessed":1307,"Coefficient":1.78},{"CountyName":"Dalarna county","Year":2024,"NumberSold":1873,"AvgPrice":2331,"AvgAssessed":1760,"Coefficient":1.39},{"CountyName":"Dalarna county","Year":2025,"NumberSold":1996,"AvgPrice":2295,"AvgAssessed":1728,"Coefficient":1.39},{"CountyName":"Gävleborg county","Year":2000,"NumberSold":1501,"AvgPrice":553,"AvgAssessed":338,"Coefficient":1.61},{"CountyName":"Gävleborg county","Year":2001,"NumberSold":1624,"AvgPrice":600,"AvgAssessed":343,"Coefficient":1.71},{"CountyName":"Gävleborg county","Year":2002,"NumberSold":1644,"AvgPrice":593,"AvgAssessed":330,"Coefficient":1.76},{"CountyName":"Gävleborg county","Year":2003,"NumberSold":1713,"AvgPrice":638,"AvgAssessed":421,"Coefficient":1.53},{"CountyName":"Gävleborg county","Year":2004,"NumberSold":1858,"AvgPrice":678,"AvgAssessed":416,"Coefficient":1.63},{"CountyName":"Gävleborg county","Year":2005,"NumberSold":1955,"AvgPrice":764,"AvgAssessed":423,"Coefficient":1.79},{"CountyName":"Gävleborg county","Year":2006,"NumberSold":1869,"AvgPrice":817,"AvgAssessed":488,"Coefficient":1.68},{"CountyName":"Gävleborg county","Year":2007,"NumberSold":2060,"AvgPrice":908,"AvgAssessed":488,"Coefficient":1.86},{"CountyName":"Gävleborg county","Year":2008,"NumberSold":1802,"AvgPrice":985,"AvgAssessed":499,"Coefficient":1.97},{"CountyName":"Gävleborg county","Year":2009,"NumberSold":1660,"AvgPrice":997,"AvgAssessed":656,"Coefficient":1.57},{"CountyName":"Gävleborg county","Year":2010,"NumberSold":1782,"AvgPrice":1068,"AvgAssessed":675,"Coefficient":1.61},{"CountyName":"Gävleborg county","Year":2011,"NumberSold":1719,"AvgPrice":1123,"AvgAssessed":700,"Coefficient":1.62},{"CountyName":"Gävleborg county","Year":2012,"NumberSold":1525,"AvgPrice":1149,"AvgAssessed":799,"Coefficient":1.48},{"CountyName":"Gävleborg county","Year":2013,"NumberSold":1658,"AvgPrice":1166,"AvgAssessed":804,"Coefficient":1.47},{"CountyName":"Gävleborg county","Year":2014,"NumberSold":1767,"AvgPrice":1214,"AvgAssessed":795,"Coefficient":1.55},{"CountyName":"Gävleborg county","Year":2015,"NumberSold":1886,"AvgPrice":1354,"AvgAssessed":815,"Coefficient":1.7},{"CountyName":"Gävleborg county","Year":2016,"NumberSold":1858,"AvgPrice":1426,"AvgAssessed":773,"Coefficient":1.88},{"CountyName":"Gävleborg county","Year":2017,"NumberSold":1838,"AvgPrice":1587,"AvgAssessed":786,"Coefficient":2.06},{"CountyName":"Gävleborg county","Year":2018,"NumberSold":1869,"AvgPrice":1683,"AvgAssessed":1017,"Coefficient":1.79},{"CountyName":"Gävleborg county","Year":2019,"NumberSold":1885,"AvgPrice":1791,"AvgAssessed":1060,"Coefficient":1.81},{"CountyName":"Gävleborg county","Year":2020,"NumberSold":1839,"AvgPrice":1806,"AvgAssessed":1005,"Coefficient":1.94},{"CountyName":"Gävleborg county","Year":2021,"NumberSold":1870,"AvgPrice":2105,"AvgAssessed":1200,"Coefficient":1.85},{"CountyName":"Gävleborg county","Year":2022,"NumberSold":1817,"AvgPrice":2281,"AvgAssessed":1243,"Coefficient":1.96},{"CountyName":"Gävleborg county","Year":2023,"NumberSold":1462,"AvgPrice":2074,"AvgAssessed":1246,"Coefficient":1.78},{"CountyName":"Gävleborg county","Year":2024,"NumberSold":1698,"AvgPrice":2172,"AvgAssessed":1646,"Coefficient":1.39},{"CountyName":"Gävleborg county","Year":2025,"NumberSold":1784,"AvgPrice":2276,"AvgAssessed":1713,"Coefficient":1.42},{"CountyName":"Västernorrland county","Year":2000,"NumberSold":1456,"AvgPrice":536,"AvgAssessed":342,"Coefficient":1.55},{"CountyName":"Västernorrland county","Year":2001,"NumberSold":1545,"AvgPrice":549,"AvgAssessed":339,"Coefficient":1.58},{"CountyName":"Västernorrland county","Year":2002,"NumberSold":1563,"AvgPrice":569,"AvgAssessed":342,"Coefficient":1.62},{"CountyName":"Västernorrland county","Year":2003,"NumberSold":1750,"AvgPrice":578,"AvgAssessed":376,"Coefficient":1.54},{"CountyName":"Västernorrland county","Year":2004,"NumberSold":1770,"AvgPrice":628,"AvgAssessed":384,"Coefficient":1.62},{"CountyName":"Västernorrland county","Year":2005,"NumberSold":1803,"AvgPrice":692,"AvgAssessed":381,"Coefficient":1.77},{"CountyName":"Västernorrland county","Year":2006,"NumberSold":1831,"AvgPrice":758,"AvgAssessed":418,"Coefficient":1.81},{"CountyName":"Västernorrland county","Year":2007,"NumberSold":1937,"AvgPrice":794,"AvgAssessed":408,"Coefficient":1.95},{"CountyName":"Västernorrland county","Year":2008,"NumberSold":1741,"AvgPrice":845,"AvgAssessed":415,"Coefficient":2.02},{"CountyName":"Västernorrland county","Year":2009,"NumberSold":1502,"AvgPrice":898,"AvgAssessed":570,"Coefficient":1.63},{"CountyName":"Västernorrland county","Year":2010,"NumberSold":1653,"AvgPrice":955,"AvgAssessed":580,"Coefficient":1.69},{"CountyName":"Västernorrland county","Year":2011,"NumberSold":1542,"AvgPrice":943,"AvgAssessed":578,"Coefficient":1.65},{"CountyName":"Västernorrland county","Year":2012,"NumberSold":1408,"AvgPrice":985,"AvgAssessed":676,"Coefficient":1.5},{"CountyName":"Västernorrland county","Year":2013,"NumberSold":1466,"AvgPrice":1008,"AvgAssessed":672,"Coefficient":1.55},{"CountyName":"Västernorrland county","Year":2014,"NumberSold":1607,"AvgPrice":1101,"AvgAssessed":681,"Coefficient":1.64},{"CountyName":"Västernorrland county","Year":2015,"NumberSold":1676,"AvgPrice":1236,"AvgAssessed":703,"Coefficient":1.76},{"CountyName":"Västernorrland county","Year":2016,"NumberSold":1688,"AvgPrice":1363,"AvgAssessed":707,"Coefficient":1.93},{"CountyName":"Västernorrland county","Year":2017,"NumberSold":1698,"AvgPrice":1426,"AvgAssessed":689,"Coefficient":2.08},{"CountyName":"Västernorrland county","Year":2018,"NumberSold":1630,"AvgPrice":1506,"AvgAssessed":921,"Coefficient":1.76},{"CountyName":"Västernorrland county","Year":2019,"NumberSold":1727,"AvgPrice":1488,"AvgAssessed":909,"Coefficient":1.77},{"CountyName":"Västernorrland county","Year":2020,"NumberSold":1713,"AvgPrice":1603,"AvgAssessed":914,"Coefficient":1.87},{"CountyName":"Västernorrland county","Year":2021,"NumberSold":1783,"AvgPrice":1813,"AvgAssessed":1048,"Coefficient":1.82},{"CountyName":"Västernorrland county","Year":2022,"NumberSold":1746,"AvgPrice":1895,"AvgAssessed":1035,"Coefficient":1.97},{"CountyName":"Västernorrland county","Year":2023,"NumberSold":1438,"AvgPrice":1743,"AvgAssessed":1008,"Coefficient":1.88},{"CountyName":"Västernorrland county","Year":2024,"NumberSold":1558,"AvgPrice":1769,"AvgAssessed":1285,"Coefficient":1.52},{"CountyName":"Västernorrland county","Year":2025,"NumberSold":1620,"AvgPrice":1870,"AvgAssessed":1348,"Coefficient":1.52},{"CountyName":"Jämtland county","Year":2000,"NumberSold":688,"AvgPrice":583,"AvgAssessed":370,"Coefficient":1.56},{"CountyName":"Jämtland county","Year":2001,"NumberSold":617,"AvgPrice":590,"AvgAssessed":362,"Coefficient":1.58},{"CountyName":"Jämtland county","Year":2002,"NumberSold":663,"AvgPrice":610,"AvgAssessed":354,"Coefficient":1.67},{"CountyName":"Jämtland county","Year":2003,"NumberSold":696,"AvgPrice":663,"AvgAssessed":427,"Coefficient":1.53},{"CountyName":"Jämtland county","Year":2004,"NumberSold":728,"AvgPrice":710,"AvgAssessed":432,"Coefficient":1.61},{"CountyName":"Jämtland county","Year":2005,"NumberSold":735,"AvgPrice":772,"AvgAssessed":427,"Coefficient":1.75},{"CountyName":"Jämtland county","Year":2006,"NumberSold":802,"AvgPrice":839,"AvgAssessed":488,"Coefficient":1.71},{"CountyName":"Jämtland county","Year":2007,"NumberSold":817,"AvgPrice":924,"AvgAssessed":491,"Coefficient":1.87},{"CountyName":"Jämtland county","Year":2008,"NumberSold":746,"AvgPrice":1080,"AvgAssessed":523,"Coefficient":2.01},{"CountyName":"Jämtland county","Year":2009,"NumberSold":738,"AvgPrice":1038,"AvgAssessed":666,"Coefficient":1.63},{"CountyName":"Jämtland county","Year":2010,"NumberSold":721,"AvgPrice":1145,"AvgAssessed":704,"Coefficient":1.68},{"CountyName":"Jämtland county","Year":2011,"NumberSold":757,"AvgPrice":1161,"AvgAssessed":680,"Coefficient":1.75},{"CountyName":"Jämtland county","Year":2012,"NumberSold":637,"AvgPrice":1118,"AvgAssessed":782,"Coefficient":1.51},{"CountyName":"Jämtland county","Year":2013,"NumberSold":679,"AvgPrice":1263,"AvgAssessed":851,"Coefficient":1.55},{"CountyName":"Jämtland county","Year":2014,"NumberSold":743,"AvgPrice":1296,"AvgAssessed":850,"Coefficient":1.57},{"CountyName":"Jämtland county","Year":2015,"NumberSold":728,"AvgPrice":1609,"AvgAssessed":1000,"Coefficient":1.66},{"CountyName":"Jämtland county","Year":2016,"NumberSold":733,"AvgPrice":1621,"AvgAssessed":913,"Coefficient":1.81},{"CountyName":"Jämtland county","Year":2017,"NumberSold":722,"AvgPrice":1723,"AvgAssessed":930,"Coefficient":1.93},{"CountyName":"Jämtland county","Year":2018,"NumberSold":774,"AvgPrice":1800,"AvgAssessed":1154,"Coefficient":1.69},{"CountyName":"Jämtland county","Year":2019,"NumberSold":783,"AvgPrice":1786,"AvgAssessed":1113,"Coefficient":1.74},{"CountyName":"Jämtland county","Year":2020,"NumberSold":662,"AvgPrice":1944,"AvgAssessed":1157,"Coefficient":1.84},{"CountyName":"Jämtland county","Year":2021,"NumberSold":869,"AvgPrice":2343,"AvgAssessed":1290,"Coefficient":1.93},{"CountyName":"Jämtland county","Year":2022,"NumberSold":755,"AvgPrice":2621,"AvgAssessed":1362,"Coefficient":2.07},{"CountyName":"Jämtland county","Year":2023,"NumberSold":692,"AvgPrice":2313,"AvgAssessed":1248,"Coefficient":2.01},{"CountyName":"Jämtland county","Year":2024,"NumberSold":818,"AvgPrice":2573,"AvgAssessed":1863,"Coefficient":1.5},{"CountyName":"Jämtland county","Year":2025,"NumberSold":840,"AvgPrice":2550,"AvgAssessed":1821,"Coefficient":1.51},{"CountyName":"Västerbotten county","Year":2000,"NumberSold":1448,"AvgPrice":709,"AvgAssessed":415,"Coefficient":1.67},{"CountyName":"Västerbotten county","Year":2001,"NumberSold":1378,"AvgPrice":762,"AvgAssessed":419,"Coefficient":1.76},{"CountyName":"Västerbotten county","Year":2002,"NumberSold":1457,"AvgPrice":786,"AvgAssessed":421,"Coefficient":1.77},{"CountyName":"Västerbotten county","Year":2003,"NumberSold":1396,"AvgPrice":774,"AvgAssessed":540,"Coefficient":1.44},{"CountyName":"Västerbotten county","Year":2004,"NumberSold":1477,"AvgPrice":841,"AvgAssessed":537,"Coefficient":1.55},{"CountyName":"Västerbotten county","Year":2005,"NumberSold":1559,"AvgPrice":951,"AvgAssessed":551,"Coefficient":1.67},{"CountyName":"Västerbotten county","Year":2006,"NumberSold":1596,"AvgPrice":1038,"AvgAssessed":612,"Coefficient":1.69},{"CountyName":"Västerbotten county","Year":2007,"NumberSold":1864,"AvgPrice":1083,"AvgAssessed":588,"Coefficient":1.84},{"CountyName":"Västerbotten county","Year":2008,"NumberSold":1600,"AvgPrice":1140,"AvgAssessed":595,"Coefficient":1.92},{"CountyName":"Västerbotten county","Year":2009,"NumberSold":1446,"AvgPrice":1205,"AvgAssessed":827,"Coefficient":1.59},{"CountyName":"Västerbotten county","Year":2010,"NumberSold":1603,"AvgPrice":1275,"AvgAssessed":828,"Coefficient":1.66},{"CountyName":"Västerbotten county","Year":2011,"NumberSold":1574,"AvgPrice":1256,"AvgAssessed":806,"Coefficient":1.67},{"CountyName":"Västerbotten county","Year":2012,"NumberSold":1503,"AvgPrice":1296,"AvgAssessed":900,"Coefficient":1.55},{"CountyName":"Västerbotten county","Year":2013,"NumberSold":1588,"AvgPrice":1414,"AvgAssessed":943,"Coefficient":1.57},{"CountyName":"Västerbotten county","Year":2014,"NumberSold":1593,"AvgPrice":1482,"AvgAssessed":899,"Coefficient":1.71},{"CountyName":"Västerbotten county","Year":2015,"NumberSold":1714,"AvgPrice":1716,"AvgAssessed":975,"Coefficient":1.84},{"CountyName":"Västerbotten county","Year":2016,"NumberSold":1575,"AvgPrice":1789,"AvgAssessed":946,"Coefficient":1.98},{"CountyName":"Västerbotten county","Year":2017,"NumberSold":1650,"AvgPrice":1915,"AvgAssessed":926,"Coefficient":2.16},{"CountyName":"Västerbotten county","Year":2018,"NumberSold":1607,"AvgPrice":2076,"AvgAssessed":1302,"Coefficient":1.77},{"CountyName":"Västerbotten county","Year":2019,"NumberSold":1655,"AvgPrice":2060,"AvgAssessed":1296,"Coefficient":1.76},{"CountyName":"Västerbotten county","Year":2020,"NumberSold":1630,"AvgPrice":2274,"AvgAssessed":1320,"Coefficient":1.93},{"CountyName":"Västerbotten county","Year":2021,"NumberSold":1656,"AvgPrice":2599,"AvgAssessed":1480,"Coefficient":1.9},{"CountyName":"Västerbotten county","Year":2022,"NumberSold":1620,"AvgPrice":2831,"AvgAssessed":1494,"Coefficient":2.11},{"CountyName":"Västerbotten county","Year":2023,"NumberSold":1529,"AvgPrice":2510,"AvgAssessed":1435,"Coefficient":1.93},{"CountyName":"Västerbotten county","Year":2024,"NumberSold":1755,"AvgPrice":2733,"AvgAssessed":2083,"Coefficient":1.45},{"CountyName":"Västerbotten county","Year":2025,"NumberSold":1699,"AvgPrice":2740,"AvgAssessed":2098,"Coefficient":1.43},{"CountyName":"Norrbotten county","Year":2000,"NumberSold":1296,"AvgPrice":548,"AvgAssessed":346,"Coefficient":1.55},{"CountyName":"Norrbotten county","Year":2001,"NumberSold":1293,"AvgPrice":578,"AvgAssessed":347,"Coefficient":1.62},{"CountyName":"Norrbotten county","Year":2002,"NumberSold":1218,"AvgPrice":589,"AvgAssessed":332,"Coefficient":1.75},{"CountyName":"Norrbotten county","Year":2003,"NumberSold":1344,"AvgPrice":602,"AvgAssessed":392,"Coefficient":1.54},{"CountyName":"Norrbotten county","Year":2004,"NumberSold":1424,"AvgPrice":617,"AvgAssessed":379,"Coefficient":1.64},{"CountyName":"Norrbotten county","Year":2005,"NumberSold":1521,"AvgPrice":724,"AvgAssessed":402,"Coefficient":1.77},{"CountyName":"Norrbotten county","Year":2006,"NumberSold":1486,"AvgPrice":755,"AvgAssessed":443,"Coefficient":1.72},{"CountyName":"Norrbotten county","Year":2007,"NumberSold":1677,"AvgPrice":802,"AvgAssessed":446,"Coefficient":1.83},{"CountyName":"Norrbotten county","Year":2008,"NumberSold":1531,"AvgPrice":842,"AvgAssessed":457,"Coefficient":1.87},{"CountyName":"Norrbotten county","Year":2009,"NumberSold":1302,"AvgPrice":864,"AvgAssessed":578,"Coefficient":1.58},{"CountyName":"Norrbotten county","Year":2010,"NumberSold":1455,"AvgPrice":907,"AvgAssessed":561,"Coefficient":1.67},{"CountyName":"Norrbotten county","Year":2011,"NumberSold":1464,"AvgPrice":930,"AvgAssessed":552,"Coefficient":1.74},{"CountyName":"Norrbotten county","Year":2012,"NumberSold":1443,"AvgPrice":987,"AvgAssessed":639,"Coefficient":1.62},{"CountyName":"Norrbotten county","Year":2013,"NumberSold":1404,"AvgPrice":1073,"AvgAssessed":648,"Coefficient":1.7},{"CountyName":"Norrbotten county","Year":2014,"NumberSold":1564,"AvgPrice":1173,"AvgAssessed":654,"Coefficient":1.84},{"CountyName":"Norrbotten county","Year":2015,"NumberSold":1580,"AvgPrice":1361,"AvgAssessed":757,"Coefficient":1.87},{"CountyName":"Norrbotten county","Year":2016,"NumberSold":1454,"AvgPrice":1384,"AvgAssessed":736,"Coefficient":1.98},{"CountyName":"Norrbotten county","Year":2017,"NumberSold":1589,"AvgPrice":1538,"AvgAssessed":769,"Coefficient":2.12},{"CountyName":"Norrbotten county","Year":2018,"NumberSold":1538,"AvgPrice":1511,"AvgAssessed":986,"Coefficient":1.69},{"CountyName":"Norrbotten county","Year":2019,"NumberSold":1577,"AvgPrice":1650,"AvgAssessed":1072,"Coefficient":1.72},{"CountyName":"Norrbotten county","Year":2020,"NumberSold":1510,"AvgPrice":1708,"AvgAssessed":1056,"Coefficient":1.78},{"CountyName":"Norrbotten county","Year":2021,"NumberSold":1671,"AvgPrice":1961,"AvgAssessed":1160,"Coefficient":1.78},{"CountyName":"Norrbotten county","Year":2022,"NumberSold":1552,"AvgPrice":2099,"AvgAssessed":1162,"Coefficient":1.91},{"CountyName":"Norrbotten county","Year":2023,"NumberSold":1337,"AvgPrice":1929,"AvgAssessed":1127,"Coefficient":1.84},{"CountyName":"Norrbotten county","Year":2024,"NumberSold":1478,"AvgPrice":2081,"AvgAssessed":1474,"Coefficient":1.54},{"CountyName":"Norrbotten county","Year":2025,"NumberSold":1525,"AvgPrice":2237,"AvgAssessed":1571,"Coefficient":1.53}]
+;
+
+const fmtInt = n => Math.round(n).toLocaleString('en-US');
+const fmtK = n => Math.round(n).toLocaleString('en-US');
+
+const years = [...new Set(DATA.map(d => d.Year))].sort((a,b)=>a-b);
+const counties = [...new Set(DATA.map(d => d.CountyName))].sort();
+
+const yearFromSel = document.getElementById('yearFrom');
+const yearToSel = document.getElementById('yearTo');
+const countySel = document.getElementById('countySel');
+
+years.forEach(y => {
+  yearFromSel.add(new Option(y, y));
+  yearToSel.add(new Option(y, y));
+});
+yearFromSel.value = years[0];
+yearToSel.value = years[years.length - 1];
+
+countySel.add(new Option('All counties', 'ALL'));
+counties.forEach(c => countySel.add(new Option(c, c)));
+countySel.value = 'ALL';
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  yearFromSel.value = years[0];
+  yearToSel.value = years[years.length - 1];
+  countySel.value = 'ALL';
+  render();
+});
+[yearFromSel, yearToSel, countySel].forEach(el => el.addEventListener('change', render));
+
+const tooltip = document.getElementById('tooltip');
+function showTooltip(x, y, rowsHtml) {
+  tooltip.innerHTML = rowsHtml;
+  tooltip.style.opacity = 1;
+  tooltip.style.left = (x + 14) + 'px';
+  tooltip.style.top = (y + 14) + 'px';
+}
+function hideTooltip() { tooltip.style.opacity = 0; }
+
+function weightedAvg(rows, valueKey, weightKey) {
+  let num = 0, den = 0;
+  rows.forEach(r => { num += r[valueKey] * r[weightKey]; den += r[weightKey]; });
+  return den === 0 ? 0 : num / den;
+}
+
+function svgEl(tag, attrs) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+  for (const k in attrs) el.setAttribute(k, attrs[k]);
+  return el;
+}
+
+function niceMax(v) {
+  if (v <= 0) return 1;
+  const mag = Math.pow(10, Math.floor(Math.log10(v)));
+  const norm = v / mag;
+  let step;
+  if (norm <= 1) step = 1; else if (norm <= 2) step = 2; else if (norm <= 5) step = 5; else step = 10;
+  return step * mag;
+}
+
+// ---- Line chart (trend) ----
+function renderLineChart(containerId, points, options) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const w = 500, h = 236, padL = 58, padR = 12, padT = 10, padB = 44;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+
+  if (points.length === 0) { container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:20px 0;">No data for this selection</div>'; return; }
+
+  const xMin = points[0].x, xMax = points[points.length - 1].x;
+  const yMax = niceMax(Math.max(...points.map(p => p.y)) * 1.15);
+  const yMin = 0;
+
+  const xScale = x => padL + (xMax === xMin ? plotW/2 : (x - xMin) / (xMax - xMin) * plotW);
+  const yScale = y => padT + plotH - (y - yMin) / (yMax - yMin) * plotH;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${w} ${h}` });
+
+  // gridlines + y ticks
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const val = yMin + (yMax - yMin) * i / steps;
+    const yy = yScale(val);
+    svg.appendChild(svgEl('line', { class: 'gridline', x1: padL, x2: w - padR, y1: yy, y2: yy }));
+    const t = svgEl('text', { class: 'axis-label', x: padL - 8, y: yy + 3, 'text-anchor': 'end' });
+    t.textContent = options.yFmt(val);
+    svg.appendChild(t);
+  }
+  svg.appendChild(svgEl('line', { class: 'baseline', x1: padL, x2: w - padR, y1: padT + plotH, y2: padT + plotH }));
+
+  // x ticks - sparse
+  const xTickEvery = Math.max(1, Math.ceil(points.length / 7));
+  points.forEach((p, i) => {
+    if (i % xTickEvery === 0 || i === points.length - 1) {
+      const t = svgEl('text', { class: 'axis-label', x: xScale(p.x), y: padT + plotH + 16, 'text-anchor': 'middle' });
+      t.textContent = p.x;
+      svg.appendChild(t);
+    }
+  });
+
+  // axis dimension titles
+  if (options.xAxisName) {
+    const t = svgEl('text', { class: 'axis-title', x: padL + plotW / 2, y: h - 6, 'text-anchor': 'middle' });
+    t.textContent = options.xAxisName;
+    svg.appendChild(t);
+  }
+  if (options.yAxisName) {
+    const t = svgEl('text', { class: 'axis-title', x: 14, y: padT + plotH / 2, 'text-anchor': 'middle', transform: `rotate(-90 14 ${padT + plotH / 2})` });
+    t.textContent = options.yAxisName;
+    svg.appendChild(t);
+  }
+
+  // line path
+  const d = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xScale(p.x)} ${yScale(p.y)}`).join(' ');
+  svg.appendChild(svgEl('path', { d, fill: 'none', stroke: 'var(--series-1)', 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+
+  // end marker + label
+  const last = points[points.length - 1];
+  svg.appendChild(svgEl('circle', { cx: xScale(last.x), cy: yScale(last.y), r: 4, fill: 'var(--series-1)', stroke: 'var(--surface-1)', 'stroke-width': 2 }));
+  const endLabel = svgEl('text', { class: 'bar-value-label', x: xScale(last.x) - 4, y: yScale(last.y) - 10, 'text-anchor': 'end' });
+  endLabel.textContent = options.yFmt(last.y);
+  svg.appendChild(endLabel);
+
+  // hover crosshair + hit areas
+  const crosshair = svgEl('line', { class: 'gridline', x1: 0, x2: 0, y1: padT, y2: padT + plotH, style: 'display:none;stroke:var(--baseline)' });
+  svg.appendChild(crosshair);
+
+  points.forEach(p => {
+    const hit = svgEl('rect', {
+      x: xScale(p.x) - (plotW / points.length) / 2, y: padT, width: Math.max(plotW / points.length, 8), height: plotH,
+      fill: 'transparent'
+    });
+    hit.addEventListener('pointerenter', (e) => {
+      crosshair.setAttribute('x1', xScale(p.x)); crosshair.setAttribute('x2', xScale(p.x));
+      crosshair.style.display = 'block';
+      showTooltip(e.pageX, e.pageY,
+        `<div class="tooltip-row"><span class="tooltip-key"></span><span>${p.x}</span></div><div class="t-value">${options.yFmt(p.y)}${options.unit||''}</div>`);
+    });
+    hit.addEventListener('pointermove', (e) => {
+      showTooltip(e.pageX, e.pageY, `<div class="tooltip-row"><span class="tooltip-key"></span><span>${p.x}</span></div><div class="t-value">${options.yFmt(p.y)}${options.unit||''}</div>`);
+    });
+    hit.addEventListener('pointerleave', () => { crosshair.style.display = 'none'; hideTooltip(); });
+    svg.appendChild(hit);
+  });
+
+  container.appendChild(svg);
+}
+
+// ---- Horizontal bar chart ----
+function renderBarChartH(containerId, bars, options) {
+  // bars: [{label, value}], sorted desc by caller
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const rowH = 20, gap = 6;
+  const w = 500, padL = 132, padR = 46, padT = 22, padB = 26;
+  const plotW = w - padL - padR;
+  const h = padT + padB + bars.length * (rowH + gap);
+
+  if (bars.length === 0) { container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:20px 0;">No data for this selection</div>'; return; }
+
+  const maxVal = niceMax(Math.max(...bars.map(b => b.value)) * 1.1);
+  const xScale = v => (v / maxVal) * plotW;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${w} ${h}` });
+
+  // axis dimension titles (category header above labels, value axis name above bars)
+  if (options.categoryAxisName) {
+    const t = svgEl('text', { class: 'axis-title', x: padL - 8, y: padT - 8, 'text-anchor': 'end' });
+    t.textContent = options.categoryAxisName;
+    svg.appendChild(t);
+  }
+  if (options.xAxisName) {
+    const t = svgEl('text', { class: 'axis-title', x: padL, y: padT - 8, 'text-anchor': 'start' });
+    t.textContent = options.xAxisName;
+    svg.appendChild(t);
+  }
+
+  const plotBottom = padT + bars.length * (rowH + gap) - gap;
+  const gSteps = 3;
+  for (let i = 0; i <= gSteps; i++) {
+    const val = maxVal * i / gSteps;
+    const xx = padL + xScale(val);
+    svg.appendChild(svgEl('line', { class: 'gridline', x1: xx, x2: xx, y1: padT, y2: plotBottom }));
+    const t = svgEl('text', { class: 'axis-label', x: xx, y: plotBottom + 16, 'text-anchor': i === 0 ? 'start' : (i === gSteps ? 'end' : 'middle') });
+    t.textContent = options.yFmt(val);
+    svg.appendChild(t);
+  }
+
+  bars.forEach((b, i) => {
+    const y = padT + i * (rowH + gap);
+    const barW = Math.max(xScale(b.value), 2);
+    const isHighlighted = options.highlight && b.label === options.highlight;
+    const isExtreme = (i === 0 || i === bars.length - 1);
+
+    const label = svgEl('text', { class: 'bar-label', x: padL - 8, y: y + rowH/2 + 3.5, 'text-anchor': 'end' });
+    label.textContent = b.label.replace(' county', '');
+    svg.appendChild(label);
+
+    const bar = svgEl('rect', {
+      x: padL, y, width: barW, height: rowH, rx: 3,
+      fill: isHighlighted ? 'var(--series-1)' : 'var(--series-1-soft)'
+    });
+    svg.appendChild(bar);
+
+    const hit = svgEl('rect', { x: 0, y, width: w, height: rowH, fill: 'transparent' });
+    hit.addEventListener('pointerenter', e => {
+      bar.setAttribute('fill', 'var(--series-1)');
+      showTooltip(e.pageX, e.pageY, `<div class="tooltip-row"><span>${b.label}</span></div><div class="t-value">${options.yFmt(b.value)}${options.unit||''}</div>`);
+    });
+    hit.addEventListener('pointermove', e => showTooltip(e.pageX, e.pageY, `<div class="tooltip-row"><span>${b.label}</span></div><div class="t-value">${options.yFmt(b.value)}${options.unit||''}</div>`));
+    hit.addEventListener('pointerleave', () => { if (!isHighlighted) bar.setAttribute('fill', 'var(--series-1-soft)'); hideTooltip(); });
+    svg.appendChild(hit);
+
+    if (isExtreme) {
+      const valLabel = svgEl('text', { class: 'bar-value-label', x: padL + barW + 6, y: y + rowH/2 + 3.5 });
+      valLabel.textContent = options.yFmt(b.value);
+      svg.appendChild(valLabel);
+    }
+  });
+
+  container.appendChild(svg);
+}
+
+// ---- Vertical thin-bar chart (sales volume by year) ----
+function renderBarChartV(containerId, points, options) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = '';
+  const w = 500, h = 236, padL = 58, padR = 12, padT = 10, padB = 44;
+  const plotW = w - padL - padR, plotH = h - padT - padB;
+
+  if (points.length === 0) { container.innerHTML = '<div style="font-size:12px;color:var(--text-muted);padding:20px 0;">No data for this selection</div>'; return; }
+
+  const maxVal = niceMax(Math.max(...points.map(p => p.y)) * 1.15);
+  const n = points.length;
+  const slot = plotW / n;
+  const barW = Math.min(slot * 0.6, 24);
+
+  const yScale = v => padT + plotH - (v / maxVal) * plotH;
+
+  const svg = svgEl('svg', { viewBox: `0 0 ${w} ${h}` });
+
+  const steps = 4;
+  for (let i = 0; i <= steps; i++) {
+    const val = maxVal * i / steps;
+    const yy = yScale(val);
+    svg.appendChild(svgEl('line', { class: 'gridline', x1: padL, x2: w - padR, y1: yy, y2: yy }));
+    const t = svgEl('text', { class: 'axis-label', x: padL - 8, y: yy + 3, 'text-anchor': 'end' });
+    t.textContent = options.yFmt(val);
+    svg.appendChild(t);
+  }
+  svg.appendChild(svgEl('line', { class: 'baseline', x1: padL, x2: w - padR, y1: padT + plotH, y2: padT + plotH }));
+
+  const xTickEvery = Math.max(1, Math.ceil(n / 7));
+  points.forEach((p, i) => {
+    const cx = padL + slot * i + slot / 2;
+    const barH = plotH - (yScale(p.y) - padT);
+    const bar = svgEl('rect', { x: cx - barW/2, y: yScale(p.y), width: barW, height: Math.max(barH,1), rx: 2, fill: 'var(--series-1)' });
+    svg.appendChild(bar);
+
+    const hit = svgEl('rect', { x: cx - slot/2, y: padT, width: slot, height: plotH, fill: 'transparent' });
+    hit.addEventListener('pointerenter', e => showTooltip(e.pageX, e.pageY, `<div class="tooltip-row"><span>${p.x}</span></div><div class="t-value">${options.yFmt(p.y)}</div>`));
+    hit.addEventListener('pointermove', e => showTooltip(e.pageX, e.pageY, `<div class="tooltip-row"><span>${p.x}</span></div><div class="t-value">${options.yFmt(p.y)}</div>`));
+    hit.addEventListener('pointerleave', hideTooltip);
+    svg.appendChild(hit);
+
+    if (i % xTickEvery === 0 || i === n - 1) {
+      const t = svgEl('text', { class: 'axis-label', x: cx, y: padT + plotH + 16, 'text-anchor': 'middle' });
+      t.textContent = p.x;
+      svg.appendChild(t);
+    }
+  });
+
+  if (options.xAxisName) {
+    const t = svgEl('text', { class: 'axis-title', x: padL + plotW / 2, y: h - 6, 'text-anchor': 'middle' });
+    t.textContent = options.xAxisName;
+    svg.appendChild(t);
+  }
+  if (options.yAxisName) {
+    const t = svgEl('text', { class: 'axis-title', x: 14, y: padT + plotH / 2, 'text-anchor': 'middle', transform: `rotate(-90 14 ${padT + plotH / 2})` });
+    t.textContent = options.yAxisName;
+    svg.appendChild(t);
+  }
+
+  container.appendChild(svg);
+}
+
+function render() {
+  const yFrom = Number(yearFromSel.value), yTo = Number(yearToSel.value);
+  const yLo = Math.min(yFrom, yTo), yHi = Math.max(yFrom, yTo);
+  const countyFilter = countySel.value;
+
+  const scoped = DATA.filter(d => d.Year >= yLo && d.Year <= yHi && (countyFilter === 'ALL' || d.CountyName === countyFilter));
+
+  document.getElementById('kpiTotalSales').textContent = fmtInt(scoped.reduce((s,d)=>s+d.NumberSold,0));
+  document.getElementById('kpiAvgPrice').textContent = fmtK(weightedAvg(scoped, 'AvgPrice', 'NumberSold'));
+  document.getElementById('kpiAvgAssessed').textContent = fmtK(weightedAvg(scoped, 'AvgAssessed', 'NumberSold'));
+  document.getElementById('kpiCoefficient').textContent = weightedAvg(scoped, 'Coefficient', 'NumberSold').toFixed(2);
+
+  document.getElementById('trendSub').textContent = countyFilter === 'ALL' ? 'Average purchase price by year (volume-weighted, all counties)' : `Average purchase price by year — ${countyFilter}`;
+
+  // trend: price by year, within scoped county filter
+  const byYear = years.filter(y => y >= yLo && y <= yHi).map(y => {
+    const rows = scoped.filter(d => d.Year === y);
+    return { x: y, y: weightedAvg(rows, 'AvgPrice', 'NumberSold') };
+  });
+  renderLineChart('trendChart', byYear, { yFmt: v => fmtK(v), xAxisName: 'Year', yAxisName: 'Avg price (1,000 SEK)' });
+
+  // sales volume by year
+  const volByYear = years.filter(y => y >= yLo && y <= yHi).map(y => {
+    const rows = scoped.filter(d => d.Year === y);
+    return { x: y, y: rows.reduce((s,d)=>s+d.NumberSold,0) };
+  });
+  renderBarChartV('volumeChart', volByYear, { yFmt: v => fmtInt(v), xAxisName: 'Year', yAxisName: 'Properties sold' });
+
+  // price by county (always all counties, within year range; highlight selection)
+  const inYearRange = DATA.filter(d => d.Year >= yLo && d.Year <= yHi);
+  const priceByCounty = counties.map(c => ({ label: c, value: weightedAvg(inYearRange.filter(d => d.CountyName === c), 'AvgPrice', 'NumberSold') }))
+    .sort((a,b) => b.value - a.value);
+  renderBarChartH('priceByCountyChart', priceByCounty, { yFmt: v => fmtK(v), highlight: countyFilter === 'ALL' ? null : countyFilter, categoryAxisName: 'County', xAxisName: 'Avg price (1,000 SEK)' });
+
+  const coeffByCounty = counties.map(c => ({ label: c, value: weightedAvg(inYearRange.filter(d => d.CountyName === c), 'Coefficient', 'NumberSold') }))
+    .sort((a,b) => b.value - a.value);
+  renderBarChartH('coeffByCountyChart', coeffByCounty, { yFmt: v => v.toFixed(2), highlight: countyFilter === 'ALL' ? null : countyFilter, categoryAxisName: 'County', xAxisName: 'Coefficient (ratio)' });
+}
+
+render();
+</script>
